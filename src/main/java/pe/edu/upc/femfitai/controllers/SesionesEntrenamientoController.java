@@ -8,7 +8,7 @@ import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTOInsert;
 import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTOUpdate;
 import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTOList;
 import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTODetalle;
-import pe.edu.upc.femfitai.services.ISesionesEntrenamientoService;
+import pe.edu.upc.femfitai.services.interfaces.ISesionesEntrenamientoService;
 
 @RestController
 @RequestMapping("/sesiones")

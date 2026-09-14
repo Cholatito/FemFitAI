@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import pe.edu.upc.femfitai.dtos.UsuariosDTOInsert;
 import pe.edu.upc.femfitai.dtos.UsuariosDTOUpdate;
 import pe.edu.upc.femfitai.dtos.UsuariosDTOList;
-import pe.edu.upc.femfitai.services.IUsuariosService;
+import pe.edu.upc.femfitai.services.interfaces.IUsuariosService;
 
 @RestController
 @RequestMapping("/usuarios")

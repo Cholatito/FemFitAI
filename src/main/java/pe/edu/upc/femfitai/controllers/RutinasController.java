@@ -8,7 +8,7 @@ import pe.edu.upc.femfitai.dtos.RutinasDTOInsert;
 import pe.edu.upc.femfitai.dtos.RutinasDTOUpdate;
 import pe.edu.upc.femfitai.dtos.RutinasDTOList;
 import pe.edu.upc.femfitai.dtos.RutinasUsuarioDTO;
-import pe.edu.upc.femfitai.services.IRutinasService;
+import pe.edu.upc.femfitai.services.interfaces.IRutinasService;
 
 @RestController
 @RequestMapping("/rutinas")

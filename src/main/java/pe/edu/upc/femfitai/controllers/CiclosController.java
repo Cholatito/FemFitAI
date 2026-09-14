@@ -15,7 +15,7 @@ import java.util.List;
 import pe.edu.upc.femfitai.dtos.CiclosDTOInsert;
 import pe.edu.upc.femfitai.dtos.CiclosDTOList;
 import pe.edu.upc.femfitai.dtos.CiclosDTOUpdate;
-import pe.edu.upc.femfitai.services.ICiclosService;
+import pe.edu.upc.femfitai.services.interfaces.ICiclosService;
 
 @RestController
 @RequestMapping("/ciclos")

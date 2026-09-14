@@ -1,4 +1,6 @@
-package pe.edu.upc.femfitai.services;
+package pe.edu.upc.femfitai.services.implementations;
+
+import pe.edu.upc.femfitai.services.interfaces.IRutinasService;
 
 import java.time.LocalDateTime;
 import java.util.List;

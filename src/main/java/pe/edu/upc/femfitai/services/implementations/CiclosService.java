@@ -1,4 +1,6 @@
-package pe.edu.upc.femfitai.services;
+package pe.edu.upc.femfitai.services.implementations;
+
+import pe.edu.upc.femfitai.services.interfaces.ICiclosService;
 
 import pe.edu.upc.femfitai.dtos.CiclosUsuarioDTO;
 

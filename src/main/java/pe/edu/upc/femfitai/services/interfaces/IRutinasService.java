@@ -1,4 +1,4 @@
-package pe.edu.upc.femfitai.services;
+package pe.edu.upc.femfitai.services.interfaces;
 
 import java.util.List;
 import pe.edu.upc.femfitai.dtos.RutinasDTOInsert;
