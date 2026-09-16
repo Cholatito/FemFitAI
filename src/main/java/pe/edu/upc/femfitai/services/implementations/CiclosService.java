@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
-import pe.edu.upc.femfitai.dtos.CiclosDTOInsert;
+
 import pe.edu.upc.femfitai.dtos.CiclosDTO;
 import pe.edu.upc.femfitai.dtos.CiclosDTOUpdate;
 import pe.edu.upc.femfitai.entities.Ciclos;

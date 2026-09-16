@@ -3,7 +3,7 @@ package pe.edu.upc.femfitai.services.interfaces;
 import pe.edu.upc.femfitai.dtos.CiclosUsuarioDTO;
 
 import java.util.List;
-import pe.edu.upc.femfitai.dtos.CiclosDTOInsert;
+
 import pe.edu.upc.femfitai.dtos.CiclosDTO;
 import pe.edu.upc.femfitai.dtos.CiclosDTOUpdate;
 
