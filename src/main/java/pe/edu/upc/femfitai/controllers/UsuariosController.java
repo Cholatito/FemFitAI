@@ -4,9 +4,7 @@ import java.net.URI;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import pe.edu.upc.femfitai.dtos.UsuariosDTOInsert;
-import pe.edu.upc.femfitai.dtos.UsuariosDTOUpdate;
-import pe.edu.upc.femfitai.dtos.UsuariosDTOList;
+import pe.edu.upc.femfitai.dtos.UsuariosDTO;
 import pe.edu.upc.femfitai.services.interfaces.IUsuariosService;
 
 @RestController
@@ -19,24 +17,24 @@ public class UsuariosController {
     }
 
     @PostMapping
-    public ResponseEntity<UsuariosDTOList> registrar(@RequestBody UsuariosDTOInsert datos) {
-        UsuariosDTOList usuario = service.registrar(datos);
-        return ResponseEntity.created(URI.create("/usuarios/" + usuario.idUsuario())).body(usuario);
+    public ResponseEntity<UsuariosDTO> registrar(@RequestBody UsuariosDTO datos) {
+        UsuariosDTO usuario = service.registrar(datos);
+        return ResponseEntity.created(URI.create("/usuarios/" + usuario.getIdUsuario())).body(usuario);
     }
 
     @GetMapping
-    public List<UsuariosDTOList> listar() {
+    public List<UsuariosDTO> listar() {
         return service.listar();
     }
 
     @GetMapping("/{id}")
-    public UsuariosDTOList buscarPorId(@PathVariable("id") Integer id) {
+    public UsuariosDTO buscarPorId(@PathVariable("id") Integer id) {
         return service.buscarPorId(id);
     }
 
     @PutMapping("/{id}")
-    public UsuariosDTOList actualizar(@PathVariable("id") Integer id,
-                                     @RequestBody UsuariosDTOUpdate datos) {
+    public UsuariosDTO actualizar(@PathVariable("id") Integer id,
+                                     @RequestBody UsuariosDTO datos) {
         return service.actualizar(id, datos);
     }
 

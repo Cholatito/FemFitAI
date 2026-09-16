@@ -1,14 +1,12 @@
 package pe.edu.upc.femfitai.services.interfaces;
 
 import java.util.List;
-import pe.edu.upc.femfitai.dtos.UsuariosDTOInsert;
-import pe.edu.upc.femfitai.dtos.UsuariosDTOUpdate;
-import pe.edu.upc.femfitai.dtos.UsuariosDTOList;
+import pe.edu.upc.femfitai.dtos.UsuariosDTO;
 
 public interface IUsuariosService {
-    UsuariosDTOList registrar(UsuariosDTOInsert datos);
-    List<UsuariosDTOList> listar();
-    UsuariosDTOList buscarPorId(Integer id);
-    UsuariosDTOList actualizar(Integer id, UsuariosDTOUpdate datos);
+    UsuariosDTO registrar(UsuariosDTO datos);
+    List<UsuariosDTO> listar();
+    UsuariosDTO buscarPorId(Integer id);
+    UsuariosDTO actualizar(Integer id, UsuariosDTO datos);
     void eliminar(Integer id);
 }
