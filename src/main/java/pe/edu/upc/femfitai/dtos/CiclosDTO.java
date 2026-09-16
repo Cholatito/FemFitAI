@@ -2,14 +2,14 @@ package pe.edu.upc.femfitai.dtos;
 
 import java.time.LocalDate;
 
-public class CiclosDTOList {
+public class CiclosDTO {
     private Long idCiclo;
     private Long idUsuario;
     private LocalDate fechaInicio;
     private LocalDate fechaFinEstimada;
     private LocalDate fechaReal;
 
-    public CiclosDTOList(Long idCiclo, Long idUsuario, LocalDate fechaInicio, LocalDate fechaFinEstimada, LocalDate fechaReal) {
+    public CiclosDTO(Long idCiclo, Long idUsuario, LocalDate fechaInicio, LocalDate fechaFinEstimada, LocalDate fechaReal) {
         this.idCiclo = idCiclo;
         this.idUsuario = idUsuario;
         this.fechaInicio = fechaInicio;

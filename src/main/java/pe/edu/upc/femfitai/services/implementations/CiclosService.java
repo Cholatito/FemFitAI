@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import pe.edu.upc.femfitai.dtos.CiclosDTOInsert;
-import pe.edu.upc.femfitai.dtos.CiclosDTOList;
+import pe.edu.upc.femfitai.dtos.CiclosDTO;
 import pe.edu.upc.femfitai.dtos.CiclosDTOUpdate;
 import pe.edu.upc.femfitai.entities.Ciclos;
 import pe.edu.upc.femfitai.repositories.CiclosRepository;
@@ -26,7 +26,7 @@ public class CiclosService implements ICiclosService {
 
     @Override
     @Transactional
-    public CiclosDTOList registrar(CiclosDTOInsert datos) {
+    public CiclosDTO registrar(CiclosDTO datos) {
         if (datos == null || datos.getIdUsuario() == null || datos.getFechaInicio() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "idUsuario y fechaInicio son obligatorios");
@@ -45,7 +45,7 @@ public class CiclosService implements ICiclosService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<CiclosDTOList> listar() {
+    public List<CiclosDTO> listar() {
         return repository.findAll().stream()
                 .map(this::convertirADTO)
                 .toList();
@@ -53,13 +53,13 @@ public class CiclosService implements ICiclosService {
 
     @Override
     @Transactional(readOnly = true)
-    public CiclosDTOList buscarPorId(Long id) {
+    public CiclosDTO buscarPorId(Long id) {
         return convertirADTO(obtenerCiclo(id));
     }
 
     @Override
     @Transactional
-    public CiclosDTOList actualizar(Long id, CiclosDTOUpdate datos) {
+    public CiclosDTO actualizar(Long id, CiclosDTOUpdate datos) {
         Ciclos ciclo = obtenerCiclo(id);
         if (datos == null || datos.getIdUsuario() == null || datos.getFechaInicio() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -98,14 +98,14 @@ public class CiclosService implements ICiclosService {
         return valor >= Integer.MIN_VALUE && valor <= Integer.MAX_VALUE;
     }
 
-    private CiclosDTOList convertirADTO(Ciclos ciclo) {
-        return new CiclosDTOList(ciclo.getIdCiclo(), ciclo.getIdUsuario(),
+    private CiclosDTO convertirADTO(Ciclos ciclo) {
+        return new CiclosDTO(ciclo.getIdCiclo(), ciclo.getIdUsuario(),
                 ciclo.getFechaInicio(), ciclo.getFechaFinEstimada(), ciclo.getFechaReal());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<CiclosDTOList> listarPorUsuario(Long idUsuario) {
+    public List<CiclosDTO> listarPorUsuario(Long idUsuario) {
         return repository.findByIdUsuario(idUsuario).stream()
                 .map(this::convertirADTO)
                 .toList();

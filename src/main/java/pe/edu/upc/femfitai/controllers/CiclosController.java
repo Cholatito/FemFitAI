@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import pe.edu.upc.femfitai.dtos.CiclosDTOInsert;
-import pe.edu.upc.femfitai.dtos.CiclosDTOList;
+import pe.edu.upc.femfitai.dtos.CiclosDTO;
 import pe.edu.upc.femfitai.dtos.CiclosDTOUpdate;
 import pe.edu.upc.femfitai.services.interfaces.ICiclosService;
 
@@ -28,23 +28,23 @@ public class CiclosController {
     }
 
     @PostMapping
-    public CiclosDTOList registrar(@RequestBody CiclosDTOInsert datos) {
+    public CiclosDTO registrar(@RequestBody CiclosDTO datos) {
         return service.registrar(datos);
     }
 
     @GetMapping
-    public List<CiclosDTOList> listar() {
+    public List<CiclosDTO> listar() {
         return service.listar();
     }
 
     @GetMapping("/{id}")
-    public CiclosDTOList buscarPorId(@PathVariable("id") Long id) {
+    public CiclosDTO buscarPorId(@PathVariable("id") Long id) {
         return service.buscarPorId(id);
     }
 
     @PutMapping("/{id}")
-    public CiclosDTOList actualizar(@PathVariable("id") Long id,
-                                    @RequestBody CiclosDTOUpdate datos) {
+    public CiclosDTO actualizar(@PathVariable("id") Long id,
+                                @RequestBody CiclosDTOUpdate datos) {
         return service.actualizar(id, datos);
     }
 
@@ -55,7 +55,7 @@ public class CiclosController {
     }
 
     @GetMapping("/usuario/{idUsuario}")
-    public List<CiclosDTOList> listarPorUsuario(@PathVariable("idUsuario") Long idUsuario) {
+    public List<CiclosDTO> listarPorUsuario(@PathVariable("idUsuario") Long idUsuario) {
         return service.listarPorUsuario(idUsuario);
     }
 
