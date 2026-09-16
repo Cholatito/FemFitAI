@@ -4,9 +4,7 @@ import java.net.URI;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import pe.edu.upc.femfitai.dtos.RutinasDTOInsert;
-import pe.edu.upc.femfitai.dtos.RutinasDTOUpdate;
-import pe.edu.upc.femfitai.dtos.RutinasDTOList;
+import pe.edu.upc.femfitai.dtos.RutinasDTO;
 import pe.edu.upc.femfitai.dtos.RutinasUsuarioDTO;
 import pe.edu.upc.femfitai.services.interfaces.IRutinasService;
 
@@ -20,24 +18,24 @@ public class RutinasController {
     }
 
     @PostMapping
-    public ResponseEntity<RutinasDTOList> registrar(@RequestBody RutinasDTOInsert datos) {
-        RutinasDTOList rutina = service.registrar(datos);
-        return ResponseEntity.created(URI.create("/rutinas/" + rutina.idRutina())).body(rutina);
+    public ResponseEntity<RutinasDTO> registrar(@RequestBody RutinasDTO datos) {
+        RutinasDTO rutina = service.registrar(datos);
+        return ResponseEntity.created(URI.create("/rutinas/" + rutina.getIdRutina())).body(rutina);
     }
 
     @GetMapping
-    public List<RutinasDTOList> listar() {
+    public List<RutinasDTO> listar() {
         return service.listar();
     }
 
     @GetMapping("/{id}")
-    public RutinasDTOList buscarPorId(@PathVariable("id") Integer id) {
+    public RutinasDTO buscarPorId(@PathVariable("id") Integer id) {
         return service.buscarPorId(id);
     }
 
     @PutMapping("/{id}")
-    public RutinasDTOList actualizar(@PathVariable("id") Integer id,
-                                    @RequestBody RutinasDTOUpdate datos) {
+    public RutinasDTO actualizar(@PathVariable("id") Integer id,
+                                    @RequestBody RutinasDTO datos) {
         return service.actualizar(id, datos);
     }
 
@@ -48,7 +46,7 @@ public class RutinasController {
     }
 
     @GetMapping("/usuario/{idUsuario}")
-    public List<RutinasDTOList> listarPorUsuario(@PathVariable("idUsuario") Integer idUsuario) {
+    public List<RutinasDTO> listarPorUsuario(@PathVariable("idUsuario") Integer idUsuario) {
         return service.listarPorUsuario(idUsuario);
     }
 

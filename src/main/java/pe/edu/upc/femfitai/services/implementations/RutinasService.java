@@ -8,9 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import pe.edu.upc.femfitai.dtos.RutinasDTOInsert;
-import pe.edu.upc.femfitai.dtos.RutinasDTOUpdate;
-import pe.edu.upc.femfitai.dtos.RutinasDTOList;
+import pe.edu.upc.femfitai.dtos.RutinasDTO;
 import pe.edu.upc.femfitai.dtos.RutinasUsuarioDTO;
 import pe.edu.upc.femfitai.entities.Rutinas;
 import pe.edu.upc.femfitai.repositories.RutinasRepository;
@@ -28,7 +26,7 @@ public class RutinasService implements IRutinasService {
 
     @Override
     @Transactional
-    public RutinasDTOList registrar(RutinasDTOInsert datos) {
+    public RutinasDTO registrar(RutinasDTO datos) {
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
@@ -42,19 +40,19 @@ public class RutinasService implements IRutinasService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<RutinasDTOList> listar() {
+    public List<RutinasDTO> listar() {
         return repository.findAll().stream().map(this::convertirADTO).toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public RutinasDTOList buscarPorId(Integer id) {
+    public RutinasDTO buscarPorId(Integer id) {
         return convertirADTO(obtenerRutina(id));
     }
 
     @Override
     @Transactional
-    public RutinasDTOList actualizar(Integer id, RutinasDTOUpdate datos) {
+    public RutinasDTO actualizar(Integer id, RutinasDTO datos) {
         Rutinas rutina = obtenerRutina(id);
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
@@ -77,7 +75,7 @@ public class RutinasService implements IRutinasService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<RutinasDTOList> listarPorUsuario(Integer idUsuario) {
+    public List<RutinasDTO> listarPorUsuario(Integer idUsuario) {
         return repository.findByIdUsuario(idUsuario).stream().map(this::convertirADTO).toList();
     }
 
@@ -115,8 +113,8 @@ public class RutinasService implements IRutinasService {
         }
     }
 
-    private RutinasDTOList convertirADTO(Rutinas rutina) {
-        return new RutinasDTOList(rutina.getIdRutina(), rutina.getIdUsuario(),
+    private RutinasDTO convertirADTO(Rutinas rutina) {
+        return new RutinasDTO(rutina.getIdRutina(), rutina.getIdUsuario(),
                 rutina.getNombre(), rutina.getObjetivo(), rutina.getNivel(),
                 rutina.getFechaCreacion(), rutina.getEstado());
     }
