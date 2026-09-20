@@ -8,9 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTOInsert;
-import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTOUpdate;
-import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTOList;
+import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTO;
 import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTODetalle;
 import pe.edu.upc.femfitai.entities.SesionesEntrenamiento;
 import pe.edu.upc.femfitai.repositories.SesionesEntrenamientoRepository;
@@ -33,7 +31,7 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
 
     @Override
     @Transactional
-    public SesionesEntrenamientoDTOList registrar(SesionesEntrenamientoDTOInsert datos) {
+    public SesionesEntrenamientoDTO registrar(SesionesEntrenamientoDTO datos) {
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
@@ -48,19 +46,19 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
 
     @Override
     @Transactional(readOnly = true)
-    public List<SesionesEntrenamientoDTOList> listar() {
+    public List<SesionesEntrenamientoDTO> listar() {
         return repository.findAll().stream().map(this::convertirADTO).toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public SesionesEntrenamientoDTOList buscarPorId(Integer id) {
+    public SesionesEntrenamientoDTO buscarPorId(Integer id) {
         return convertirADTO(obtenerSesion(id));
     }
 
     @Override
     @Transactional
-    public SesionesEntrenamientoDTOList actualizar(Integer id, SesionesEntrenamientoDTOUpdate datos) {
+    public SesionesEntrenamientoDTO actualizar(Integer id, SesionesEntrenamientoDTO datos) {
         SesionesEntrenamiento sesion = obtenerSesion(id);
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
@@ -84,7 +82,7 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
 
     @Override
     @Transactional(readOnly = true)
-    public List<SesionesEntrenamientoDTOList> listarPorUsuario(Integer idUsuario) {
+    public List<SesionesEntrenamientoDTO> listarPorUsuario(Integer idUsuario) {
         return repository.findByIdUsuario(idUsuario).stream().map(this::convertirADTO).toList();
     }
 
@@ -126,8 +124,8 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
         }
     }
 
-    private SesionesEntrenamientoDTOList convertirADTO(SesionesEntrenamiento sesion) {
-        return new SesionesEntrenamientoDTOList(
+    private SesionesEntrenamientoDTO convertirADTO(SesionesEntrenamiento sesion) {
+        return new SesionesEntrenamientoDTO(
                 sesion.getIdSesion(), sesion.getIdRutina(), sesion.getIdUsuario(),
                 sesion.getFecha(), sesion.getDuracionMin(), sesion.getNivelEnergia(),
                 sesion.getEsfuerzoPercibido(), sesion.getEstado());

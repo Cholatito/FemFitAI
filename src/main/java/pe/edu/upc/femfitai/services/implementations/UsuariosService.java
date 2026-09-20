@@ -8,9 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import pe.edu.upc.femfitai.dtos.UsuariosDTOInsert;
-import pe.edu.upc.femfitai.dtos.UsuariosDTOUpdate;
-import pe.edu.upc.femfitai.dtos.UsuariosDTOList;
+import pe.edu.upc.femfitai.dtos.UsuariosDTO;
 import pe.edu.upc.femfitai.entities.Usuarios;
 import pe.edu.upc.femfitai.repositories.UsuariosRepository;
 
@@ -24,7 +22,7 @@ public class UsuariosService implements IUsuariosService {
 
     @Override
     @Transactional
-    public UsuariosDTOList registrar(UsuariosDTOInsert datos) {
+    public UsuariosDTO registrar(UsuariosDTO datos) {
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
@@ -38,19 +36,19 @@ public class UsuariosService implements IUsuariosService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<UsuariosDTOList> listar() {
+    public List<UsuariosDTO> listar() {
         return repository.findAll().stream().map(this::convertirADTO).toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public UsuariosDTOList buscarPorId(Integer id) {
+    public UsuariosDTO buscarPorId(Integer id) {
         return convertirADTO(obtenerUsuario(id));
     }
 
     @Override
     @Transactional
-    public UsuariosDTOList actualizar(Integer id, UsuariosDTOUpdate datos) {
+    public UsuariosDTO actualizar(Integer id, UsuariosDTO datos) {
         Usuarios usuario = obtenerUsuario(id);
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
@@ -92,8 +90,8 @@ public class UsuariosService implements IUsuariosService {
         }
     }
 
-    private UsuariosDTOList convertirADTO(Usuarios usuario) {
-        return new UsuariosDTOList(usuario.getIdUsuario(), usuario.getNombres(),
+    private UsuariosDTO convertirADTO(Usuarios usuario) {
+        return new UsuariosDTO(usuario.getIdUsuario(), usuario.getNombres(),
                 usuario.getApellidos(), usuario.getCorreo(), usuario.getRol(),
                 usuario.getEstado(), usuario.getFechaRegistro());
     }

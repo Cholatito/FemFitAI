@@ -4,9 +4,7 @@ import java.net.URI;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTOInsert;
-import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTOUpdate;
-import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTOList;
+import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTO;
 import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTODetalle;
 import pe.edu.upc.femfitai.services.interfaces.ISesionesEntrenamientoService;
 
@@ -20,25 +18,25 @@ public class SesionesEntrenamientoController {
     }
 
     @PostMapping
-    public ResponseEntity<SesionesEntrenamientoDTOList> registrar(
-            @RequestBody SesionesEntrenamientoDTOInsert datos) {
-        SesionesEntrenamientoDTOList sesion = service.registrar(datos);
-        return ResponseEntity.created(URI.create("/sesiones/" + sesion.idSesion())).body(sesion);
+    public ResponseEntity<SesionesEntrenamientoDTO> registrar(
+            @RequestBody SesionesEntrenamientoDTO datos) {
+        SesionesEntrenamientoDTO sesion = service.registrar(datos);
+        return ResponseEntity.created(URI.create("/sesiones/" + sesion.getIdSesion())).body(sesion);
     }
 
     @GetMapping
-    public List<SesionesEntrenamientoDTOList> listar() {
+    public List<SesionesEntrenamientoDTO> listar() {
         return service.listar();
     }
 
     @GetMapping("/{id}")
-    public SesionesEntrenamientoDTOList buscarPorId(@PathVariable("id") Integer id) {
+    public SesionesEntrenamientoDTO buscarPorId(@PathVariable("id") Integer id) {
         return service.buscarPorId(id);
     }
 
     @PutMapping("/{id}")
-    public SesionesEntrenamientoDTOList actualizar(
-            @PathVariable("id") Integer id, @RequestBody SesionesEntrenamientoDTOUpdate datos) {
+    public SesionesEntrenamientoDTO actualizar(
+            @PathVariable("id") Integer id, @RequestBody SesionesEntrenamientoDTO datos) {
         return service.actualizar(id, datos);
     }
 
@@ -49,7 +47,7 @@ public class SesionesEntrenamientoController {
     }
 
     @GetMapping("/usuario/{idUsuario}")
-    public List<SesionesEntrenamientoDTOList> listarPorUsuario(
+    public List<SesionesEntrenamientoDTO> listarPorUsuario(
             @PathVariable("idUsuario") Integer idUsuario) {
         return service.listarPorUsuario(idUsuario);
     }

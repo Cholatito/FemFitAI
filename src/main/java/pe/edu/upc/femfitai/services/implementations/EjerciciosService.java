@@ -6,8 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import pe.edu.upc.femfitai.dtos.EjerciciosDTOInsert;
-import pe.edu.upc.femfitai.dtos.EjerciciosDTOList;
+import pe.edu.upc.femfitai.dtos.EjerciciosDTO;
 import pe.edu.upc.femfitai.dtos.EjerciciosUsuarioDTO;
 import pe.edu.upc.femfitai.entities.Ejercicios;
 import pe.edu.upc.femfitai.repositories.EjerciciosRepository;
@@ -23,7 +22,7 @@ public class EjerciciosService implements IEjerciciosService {
 
     @Override
     @Transactional
-    public EjerciciosDTOList registrar(EjerciciosDTOInsert datos) {
+    public EjerciciosDTO registrar(EjerciciosDTO datos) {
         if (datos == null || datos.getNombre() == null || datos.getNombre().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nombre es obligatorio");
         }
@@ -37,13 +36,13 @@ public class EjerciciosService implements IEjerciciosService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<EjerciciosDTOList> listar() {
+    public List<EjerciciosDTO> listar() {
         return repository.findAll().stream().map(this::convertirADTO).toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public EjerciciosDTOList buscarPorId(Integer id) {
+    public EjerciciosDTO buscarPorId(Integer id) {
         return convertirADTO(obtenerEjercicio(id));
     }
 
@@ -63,7 +62,7 @@ public class EjerciciosService implements IEjerciciosService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<EjerciciosDTOList> buscarPorGrupoMuscular(String grupoMuscular) {
+    public List<EjerciciosDTO> buscarPorGrupoMuscular(String grupoMuscular) {
         return repository.buscarPorGrupoMuscular(grupoMuscular).stream()
                 .map(this::convertirADTO).toList();
     }
@@ -89,8 +88,8 @@ public class EjerciciosService implements IEjerciciosService {
         }
     }
 
-    private EjerciciosDTOList convertirADTO(Ejercicios ejercicio) {
-        return new EjerciciosDTOList(ejercicio.getIdEjercicio(), ejercicio.getNombre(),
+    private EjerciciosDTO convertirADTO(Ejercicios ejercicio) {
+        return new EjerciciosDTO(ejercicio. getIdEjercicio(),ejercicio.getNombre(),
                 ejercicio.getGrupoMuscular(), ejercicio.getTipo(), ejercicio.getDescripcion());
     }
 }
