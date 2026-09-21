@@ -57,6 +57,8 @@ public class SecurityConfig {
 
                 .csrf(csrf -> csrf.disable())
 
+                .authenticationProvider(authenticationProvider())
+
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
@@ -66,7 +68,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 
                         // Login público
-                        .requestMatchers("/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/usuarios").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/login").permitAll()
 
                         // Swagger
                         .requestMatchers(
@@ -78,6 +81,13 @@ public class SecurityConfig {
                         // CORS
                         .requestMatchers(HttpMethod.OPTIONS, "/**")
                         .permitAll()
+
+                        .requestMatchers(HttpMethod.GET, "/usuarios")
+                        .hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/usuarios/**")
+                        .hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/usuarios/**")
+                        .hasRole("ADMIN")
 
                         // Todo lo demás requiere autenticación
                         .anyRequest().authenticated()

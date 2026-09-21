@@ -48,6 +48,18 @@ public class EjerciciosService implements IEjerciciosService {
 
     @Override
     @Transactional
+    public EjerciciosDTO actualizar(Integer id, EjerciciosDTO datos) {
+        Ejercicios ejercicio = obtenerEjercicio(id);
+        validarDatos(datos);
+        ejercicio.setNombre(datos.getNombre());
+        ejercicio.setGrupoMuscular(datos.getGrupoMuscular());
+        ejercicio.setTipo(datos.getTipo());
+        ejercicio.setDescripcion(datos.getDescripcion());
+        return convertirADTO(repository.save(ejercicio));
+    }
+
+    @Override
+    @Transactional
     public void eliminar(Integer id) {
         Ejercicios ejercicio = obtenerEjercicio(id);
         try {
@@ -86,6 +98,15 @@ public class EjerciciosService implements IEjerciciosService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     campo + " no debe superar " + maximo + " caracteres");
         }
+    }
+
+    private void validarDatos(EjerciciosDTO datos) {
+        if (datos == null || datos.getNombre() == null || datos.getNombre().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nombre es obligatorio");
+        }
+        validarLongitud(datos.getNombre(), 100, "Nombre");
+        validarLongitud(datos.getGrupoMuscular(), 100, "GrupoMuscular");
+        validarLongitud(datos.getTipo(), 50, "Tipo");
     }
 
     private EjerciciosDTO convertirADTO(Ejercicios ejercicio) {
