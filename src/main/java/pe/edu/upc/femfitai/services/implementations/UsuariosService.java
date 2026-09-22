@@ -1,5 +1,6 @@
 package pe.edu.upc.femfitai.services.implementations;
 
+import pe.edu.upc.femfitai.repositories.IUsersRepository;
 import pe.edu.upc.femfitai.services.interfaces.IUsuariosService;
 
 import java.time.LocalDateTime;
@@ -10,13 +11,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.upc.femfitai.dtos.UsuariosDTO;
 import pe.edu.upc.femfitai.entities.Usuarios;
-import pe.edu.upc.femfitai.repositories.UsuariosRepository;
+import pe.edu.upc.femfitai.repositories.IUsersRepository;
 
 @Service
 public class UsuariosService implements IUsuariosService {
-    private final UsuariosRepository repository;
+    private final IUsersRepository repository;
 
-    public UsuariosService(UsuariosRepository repository) {
+    public UsuariosService(IUsersRepository repository) {
         this.repository = repository;
     }
 
@@ -73,7 +74,7 @@ public class UsuariosService implements IUsuariosService {
         if (id == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe un usuario con ID " + id);
         }
-        return repository.findById(id).orElseThrow(() ->
+        return repository.findById(Long.valueOf(id)).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe un usuario con ID " + id));
     }
 
