@@ -1,6 +1,7 @@
 package pe.edu.upc.femfitai.services.implementations;
 
 import pe.edu.upc.femfitai.repositories.IUsersRepository;
+import pe.edu.upc.femfitai.repositories.UsuariosRepository;
 import pe.edu.upc.femfitai.services.interfaces.IUsuariosService;
 
 import java.time.LocalDateTime;
@@ -17,10 +18,10 @@ import pe.edu.upc.femfitai.repositories.IUsersRepository;
 
 @Service
 public class UsuariosService implements IUsuariosService {
-    private final IUsersRepository repository;
+    private final UsuariosRepository repository;
     private final PasswordEncoder passwordEncoder;
 
-    public UsuariosService(IUsersRepository repository, PasswordEncoder passwordEncoder) {
+    public UsuariosService(UsuariosRepository repository, PasswordEncoder passwordEncoder) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
     }
@@ -87,7 +88,7 @@ public class UsuariosService implements IUsuariosService {
         if (id == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe un usuario con ID " + id);
         }
-        return repository.findById(Long.valueOf(id)).orElseThrow(() ->
+        return repository.findById(id).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe un usuario con ID " + id));
     }
 
