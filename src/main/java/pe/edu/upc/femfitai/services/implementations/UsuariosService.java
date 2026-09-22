@@ -5,7 +5,9 @@ import pe.edu.upc.femfitai.services.interfaces.IUsuariosService;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -16,9 +18,11 @@ import pe.edu.upc.femfitai.repositories.IUsersRepository;
 @Service
 public class UsuariosService implements IUsuariosService {
     private final IUsersRepository repository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UsuariosService(IUsersRepository repository) {
+    public UsuariosService(IUsersRepository repository, PasswordEncoder passwordEncoder) {
         this.repository = repository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -28,9 +32,12 @@ public class UsuariosService implements IUsuariosService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
         validar(datos.getNombres(), datos.getApellidos(), datos.getCorreo(), datos.getPasswordHash());
+        if (repository.findByCorreo(datos.getCorreo()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El correo ya está registrado");
+        }
         Usuarios usuario = new Usuarios(datos.getNombres(), datos.getApellidos(),
-                datos.getCorreo(), datos.getPasswordHash(),
-                datos.getRol() == null ? "USUARIA" : datos.getRol(),
+                datos.getCorreo(), passwordEncoder.encode(datos.getPasswordHash()),
+                "USUARIA",
                 datos.getEstado() == null ? true : datos.getEstado(), LocalDateTime.now());
         return convertirADTO(repository.save(usuario));
     }
@@ -55,12 +62,18 @@ public class UsuariosService implements IUsuariosService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
         validar(datos.getNombres(), datos.getApellidos(), datos.getCorreo(), datos.getPasswordHash());
+        repository.findByCorreo(datos.getCorreo())
+                .filter(existente -> !existente.getIdUsuario().equals(id))
+                .ifPresent(existente -> {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "El correo ya está registrado");
+                });
         usuario.setNombres(datos.getNombres());
         usuario.setApellidos(datos.getApellidos());
         usuario.setCorreo(datos.getCorreo());
-        usuario.setPasswordHash(datos.getPasswordHash());
-        usuario.setRol(datos.getRol());
-        usuario.setEstado(datos.getEstado());
+        usuario.setPasswordHash(passwordEncoder.encode(datos.getPasswordHash()));
+        usuario.setRol(datos.getRol() == null ? usuario.getRol() : normalizarRol(datos.getRol()));
+        usuario.setEstado(datos.getEstado() == null ? usuario.getEstado() : datos.getEstado());
         return convertirADTO(repository.save(usuario));
     }
 
@@ -89,6 +102,15 @@ public class UsuariosService implements IUsuariosService {
         if (valor == null || valor.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, campo + " es obligatorio");
         }
+    }
+
+    private String normalizarRol(String rol) {
+        String rolNormalizado = rol.trim().toUpperCase(Locale.ROOT);
+        if (!rolNormalizado.equals("USUARIA") && !rolNormalizado.equals("ADMIN")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Rol debe ser USUARIA o ADMIN");
+        }
+        return rolNormalizado;
     }
 
     private UsuariosDTO convertirADTO(Usuarios usuario) {

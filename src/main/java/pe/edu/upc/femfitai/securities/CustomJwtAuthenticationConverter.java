@@ -28,6 +28,7 @@ public class CustomJwtAuthenticationConverter implements Converter<Jwt, Abstract
             authorities = Arrays.stream(roles.split(","))
                     .map(String::trim)
                     .filter(role -> !role.isBlank())
+                    .map(role -> role.startsWith("ROLE_") ? role : "ROLE_" + role)
                     .map(SimpleGrantedAuthority::new)
                     .toList();
         }

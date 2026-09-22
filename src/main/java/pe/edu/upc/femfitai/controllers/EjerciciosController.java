@@ -33,6 +33,12 @@ public class EjerciciosController {
         return service.buscarPorId(id);
     }
 
+    @PutMapping("/{id}")
+    public EjerciciosDTO actualizar(@PathVariable("id") Integer id,
+                                    @RequestBody EjerciciosDTO datos) {
+        return service.actualizar(id, datos);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable("id") Integer id) {
         service.eliminar(id);

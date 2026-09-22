@@ -40,6 +40,8 @@ public class CiclosService implements ICiclosService {
         Ciclos ciclo = new Ciclos();
         ciclo.setIdUsuario(datos.getIdUsuario());
         ciclo.setFechaInicio(datos.getFechaInicio());
+        ciclo.setFechaFinEstimada(datos.getFechaFinEstimada());
+        ciclo.setFechaReal(datos.getFechaReal());
         return convertirADTO(repository.save(ciclo));
     }
 

@@ -8,6 +8,7 @@ public interface IEjerciciosService {
     EjerciciosDTO registrar(EjerciciosDTO datos);
     List<EjerciciosDTO> listar();
     EjerciciosDTO buscarPorId(Integer id);
+    EjerciciosDTO actualizar(Integer id, EjerciciosDTO datos);
     void eliminar(Integer id);
     List<EjerciciosDTO> buscarPorGrupoMuscular(String grupoMuscular);
     List<EjerciciosUsuarioDTO> listarPorUsuario(Integer idUsuario);
