@@ -22,9 +22,11 @@ public class UsuariosUserDetailsService implements UserDetailsService {
         Usuarios usuario = usuariosRepository.findByCorreo(correo)
                 .orElseThrow(() -> new UsernameNotFoundException("Credenciales inválidas"));
 
-        String rol = usuario.getRol() == null ? "USUARIA"
+        String rol = usuario.getRol() == null ? "TESTER"
                 : usuario.getRol().trim().toUpperCase(Locale.ROOT);
-        if (!rol.equals("USUARIA") && !rol.equals("ADMIN")) {
+
+        // Validamos estrictamente los nuevos roles
+        if (!rol.equals("TESTER") && !rol.equals("PROGRAMADOR")) {
             throw new UsernameNotFoundException("Rol de usuario no permitido");
         }
 

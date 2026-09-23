@@ -5,6 +5,4 @@ RUN mvn clean package -DskipTests
 FROM openjdk:17.0.1-jdk-slim
 COPY --from=build /target/FemFitAI-0.0.1-SNAPSHOT.jar femfitai.jar
 EXPOSE 8085
-ENTRYPOINT ["java","-jar","femfitai.jar"
-
-]
+ENTRYPOINT ["java","-jar","femfitai.jar"]

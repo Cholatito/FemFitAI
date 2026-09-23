@@ -83,11 +83,11 @@ public class SecurityConfig {
                         .permitAll()
 
                         .requestMatchers(HttpMethod.GET, "/usuarios")
-                        .hasRole("ADMIN")
+                        .hasRole("PROGRAMADOR")
                         .requestMatchers(HttpMethod.PUT, "/usuarios/**")
-                        .hasRole("ADMIN")
+                        .hasRole("PROGRAMADOR")
                         .requestMatchers(HttpMethod.DELETE, "/usuarios/**")
-                        .hasRole("ADMIN")
+                        .hasRole("PROGRAMADOR")
 
                         // Todo lo demás requiere autenticación
                         .anyRequest().authenticated()
