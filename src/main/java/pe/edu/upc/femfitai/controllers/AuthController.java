@@ -42,7 +42,7 @@ public class AuthController {
             String token = jwtTokenService.generateToken(usuario);
             String rol = usuario.getAuthorities().stream().findFirst()
                     .map(authority -> authority.getAuthority().replaceFirst("^ROLE_", ""))
-                    .orElse("USUARIA");
+                    .orElse("TESTER");
             return ResponseEntity.ok(new LoginResponseDTO(token, "Bearer", rol));
         } catch (AuthenticationException ex) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
