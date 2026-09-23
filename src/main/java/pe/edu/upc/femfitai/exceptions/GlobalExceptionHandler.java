@@ -17,6 +17,31 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    @ExceptionHandler({
+            org.springframework.http.converter.HttpMessageNotReadableException.class,
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
+            org.springframework.web.bind.MissingServletRequestParameterException.class})
+    public ResponseEntity<ErrorResponse> manejarPeticionInvalida(
+            Exception ex, HttpServletRequest request) {
+        return ResponseEntity.badRequest().body(new ErrorResponse(
+                400, "Peticion invalida: revise tipos, formato JSON y parametros requeridos",
+                request.getRequestURI()));
+    }
+
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> manejarIntegridad(
+            org.springframework.dao.DataIntegrityViolationException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse(
+                409, "La operacion entra en conflicto con registros existentes o relacionados",
+                request.getRequestURI()));
+    }
+
+    @ExceptionHandler(org.springframework.web.ErrorResponseException.class)
+    public ResponseEntity<ErrorResponse> manejarErrorHttp(
+            org.springframework.web.ErrorResponseException ex, HttpServletRequest request) {
+        return ResponseEntity.status(ex.getStatusCode()).body(new ErrorResponse(
+                ex.getStatusCode().value(), ex.getBody().getDetail(), request.getRequestURI()));
+    }
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> manejarResponseStatus(
