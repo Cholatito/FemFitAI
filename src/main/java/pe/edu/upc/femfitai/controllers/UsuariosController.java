@@ -34,7 +34,7 @@ public class UsuariosController {
 
     @PutMapping("/{id}")
     public UsuariosDTO actualizar(@PathVariable("id") Integer id,
-                                     @RequestBody UsuariosDTO datos) {
+                                  @RequestBody UsuariosDTO datos) {
         return service.actualizar(id, datos);
     }
 
