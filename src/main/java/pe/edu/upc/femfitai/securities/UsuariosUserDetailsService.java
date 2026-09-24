@@ -25,8 +25,8 @@ public class UsuariosUserDetailsService implements UserDetailsService {
         String rol = usuario.getRol() == null ? "TESTER"
                 : usuario.getRol().trim().toUpperCase(Locale.ROOT);
 
-        // Validamos estrictamente los nuevos roles
-        if (!rol.equals("TESTER") && !rol.equals("PROGRAMADOR")) {
+        // Conservar roles existentes y admitir las cuentas creadas por el registro.
+        if (!java.util.Set.of("USUARIA", "ADMIN", "TESTER", "PROGRAMADOR").contains(rol)) {
             throw new UsernameNotFoundException("Rol de usuario no permitido");
         }
 

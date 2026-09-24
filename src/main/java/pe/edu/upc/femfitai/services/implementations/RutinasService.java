@@ -18,10 +18,12 @@ import pe.edu.upc.femfitai.repositories.UsuariosRepository;
 public class RutinasService implements IRutinasService {
     private final RutinasRepository repository;
     private final UsuariosRepository usuariosRepository;
+    private final UsuarioActualService actual;
 
-    public RutinasService(RutinasRepository repository, UsuariosRepository usuariosRepository) {
+    public RutinasService(RutinasRepository repository, UsuariosRepository usuariosRepository, UsuarioActualService actual) {
         this.repository = repository;
         this.usuariosRepository = usuariosRepository;
+        this.actual = actual;
     }
 
     @Override
@@ -41,7 +43,7 @@ public class RutinasService implements IRutinasService {
     @Override
     @Transactional(readOnly = true)
     public List<RutinasDTO> listar() {
-        return repository.findAll().stream().map(this::convertirADTO).toList();
+        return repository.findByIdUsuario(actual.id()).stream().map(this::convertirADTO).toList();
     }
 
     @Override
@@ -76,6 +78,7 @@ public class RutinasService implements IRutinasService {
     @Override
     @Transactional(readOnly = true)
     public List<RutinasDTO> listarPorUsuario(Integer idUsuario) {
+        actual.verificar(idUsuario);
         return repository.findByIdUsuario(idUsuario).stream().map(this::convertirADTO).toList();
     }
 
@@ -85,6 +88,7 @@ public class RutinasService implements IRutinasService {
         if (id == null) {
             throw noEncontrada(id);
         }
+        obtenerRutina(id);
         return repository.buscarDetallePorId(id).orElseThrow(() -> noEncontrada(id));
     }
 
@@ -92,7 +96,9 @@ public class RutinasService implements IRutinasService {
         if (id == null) {
             throw noEncontrada(id);
         }
-        return repository.findById(id).orElseThrow(() -> noEncontrada(id));
+        Rutinas rutina = repository.findById(id).orElseThrow(() -> noEncontrada(id));
+        actual.verificar(rutina.getIdUsuario());
+        return rutina;
     }
 
     private ResponseStatusException noEncontrada(Integer id) {
@@ -107,6 +113,7 @@ public class RutinasService implements IRutinasService {
         if (nombre == null || nombre.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nombre es obligatorio");
         }
+        actual.verificar(idUsuario);
         if (!usuariosRepository.existsById(idUsuario)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "No existe un usuario con ID " + idUsuario);

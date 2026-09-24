@@ -7,7 +7,7 @@ import pe.edu.upc.femfitai.entities.Usuarios;
 import java.util.Optional;
 
 @Repository
-public interface IUsersRepository extends JpaRepository<Usuarios, Long> {
+public interface IUsersRepository extends JpaRepository<Usuarios, Integer> {
 
     Optional<Usuarios> findBynombres(String nombres);
 }

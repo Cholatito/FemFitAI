@@ -21,13 +21,16 @@ public class DetalleDiarioCicloService implements IDetalleDiarioCicloService {
     private final DetalleDiarioCicloRepository repository;
     private final CiclosRepository ciclos;
     private final UsuarioActualService actual;
+    private final pe.edu.upc.femfitai.repositories.UsuariosRepository usuarios;
 
     public DetalleDiarioCicloService(DetalleDiarioCicloRepository repository,
                                      CiclosRepository ciclos,
-                                     UsuarioActualService actual) {
+                                     UsuarioActualService actual,
+                                     pe.edu.upc.femfitai.repositories.UsuariosRepository usuarios) {
         this.repository = repository;
         this.ciclos = ciclos;
         this.actual = actual;
+        this.usuarios = usuarios;
     }
 
     @Override
@@ -44,11 +47,15 @@ public class DetalleDiarioCicloService implements IDetalleDiarioCicloService {
         exigir(d.nivelEnergia() != null, "NivelEnergia es obligatorio");
         exigir(d.nivelEnergia() >= ENERGIA_MIN && d.nivelEnergia() <= ENERGIA_MAX,
                 "NivelEnergia debe estar entre " + ENERGIA_MIN + " y " + ENERGIA_MAX);
-        texto(d.faseRegistrada(), 50, "FaseRegistrada", false);
+        exigir(d.faseRegistrada() == null || java.util.Set.of("Menstrual", "Folicular", "Ovulatoria", "Lútea")
+                .contains(d.faseRegistrada()), "FaseRegistrada debe ser Menstrual, Folicular, Ovulatoria o Lútea");
         texto(d.observaciones(), 255, "Observaciones", false);
 
-        // US10: upsert por usuaria + fecha. Si existe, se actualiza y no se duplica.
-        DetalleDiarioCiclo e = repository.buscarPorUsuarioYFecha(actual.id().longValue(), fecha)
+        // US10: bloquear la usuaria antes de consultar evita inserciones concurrentes,
+        // incluso cuando las solicitudes apuntan a ciclos distintos de la misma cuenta.
+        Integer usuario = actual.id();
+        usuarios.bloquear(usuario).orElseThrow(() -> noEncontrado("Usuario"));
+        DetalleDiarioCiclo e = repository.buscarPorUsuarioYFecha(usuario.longValue(), fecha)
                 .stream().findFirst().orElseGet(DetalleDiarioCiclo::new);
         e.setIdCiclo(d.idCiclo());
         e.setFecha(fecha);

@@ -107,9 +107,9 @@ public class UsuariosService implements IUsuariosService {
 
     private String normalizarRol(String rol) {
         String rolNormalizado = rol.trim().toUpperCase(Locale.ROOT);
-        if (!rolNormalizado.equals("USUARIA") && !rolNormalizado.equals("ADMIN")) {
+        if (!java.util.Set.of("USUARIA", "ADMIN", "TESTER", "PROGRAMADOR").contains(rolNormalizado)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Rol debe ser USUARIA o ADMIN");
+                    "Rol debe ser USUARIA, ADMIN, TESTER o PROGRAMADOR");
         }
         return rolNormalizado;
     }

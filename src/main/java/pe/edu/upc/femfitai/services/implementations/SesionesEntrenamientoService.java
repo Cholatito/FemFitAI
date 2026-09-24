@@ -50,7 +50,7 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
     @Override
     @Transactional(readOnly = true)
     public List<SesionesEntrenamientoDTO> listar() {
-        return repository.findAll().stream().map(this::convertirADTO).toList();
+        return repository.findByIdUsuario(actual.id()).stream().map(this::convertirADTO).toList();
     }
 
     @Override
@@ -66,10 +66,9 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
-        validar(datos.getIdRutina(), datos.getIdUsuario());
+        validarRegistro(datos);
         sesion.setIdRutina(datos.getIdRutina());
-        sesion.setIdUsuario(datos.getIdUsuario());
-        sesion.setFecha(datos.getFecha());
+        // Conservar propietario y fecha original de ejecucion.
         sesion.setDuracionMin(datos.getDuracionMin());
         sesion.setNivelEnergia(datos.getNivelEnergia());
         sesion.setEsfuerzoPercibido(datos.getEsfuerzoPercibido());
@@ -86,6 +85,7 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
     @Override
     @Transactional(readOnly = true)
     public List<SesionesEntrenamientoDTO> listarPorUsuario(Integer idUsuario) {
+        actual.verificar(idUsuario);
         return repository.findByIdUsuario(idUsuario).stream().map(this::convertirADTO).toList();
     }
 
@@ -95,6 +95,7 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
         if (id == null) {
             throw noEncontrada(id);
         }
+        obtenerSesion(id);
         return repository.buscarDetallePorId(id).orElseThrow(() -> noEncontrada(id));
     }
 
@@ -102,7 +103,9 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
         if (id == null) {
             throw noEncontrada(id);
         }
-        return repository.findById(id).orElseThrow(() -> noEncontrada(id));
+        SesionesEntrenamiento sesion = repository.findById(id).orElseThrow(() -> noEncontrada(id));
+        actual.verificar(sesion.getIdUsuario());
+        return sesion;
     }
 
     private ResponseStatusException noEncontrada(Integer id) {
@@ -113,8 +116,11 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
     private void validarRegistro(SesionesEntrenamientoDTO datos) {
         if (datos.getIdRutina() == null)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "IdRutina es obligatorio");
-        if (!rutinasRepository.existsById(datos.getIdRutina()))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No existe una rutina con ID " + datos.getIdRutina());
+        var rutina = rutinasRepository.findById(datos.getIdRutina()).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.BAD_REQUEST, "No existe una rutina con ID " + datos.getIdRutina()));
+        actual.verificar(rutina.getIdUsuario());
+        if (datos.getIdUsuario() != null) actual.verificar(datos.getIdUsuario());
+        Validaciones.texto(datos.getEstado(), 30, "Estado", false);
         if (datos.getDuracionMin() == null || datos.getDuracionMin() < 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "DuracionMin no puede ser negativa");
         // Escala RPE provisional 1..10: Trello exige validar escala pero no publica sus extremos.
