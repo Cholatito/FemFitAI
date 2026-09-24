@@ -11,6 +11,9 @@ import pe.edu.upc.femfitai.entities.Ciclos;
 public interface CiclosRepository extends JpaRepository<Ciclos, Long> {
 
     java.util.List<Ciclos> findByIdUsuario(Long idUsuario);
+    java.util.List<Ciclos> findByIdUsuarioOrderByFechaInicioDescIdCicloDesc(Long idUsuario);
+    boolean existsByIdUsuarioAndFechaRealIsNull(Long idUsuario);
+    boolean existsByIdUsuarioAndFechaRealIsNullAndIdCicloNot(Long idUsuario, Long idCiclo);
 
     @Query("""
             select new pe.edu.upc.femfitai.dtos.CiclosUsuarioDTO(

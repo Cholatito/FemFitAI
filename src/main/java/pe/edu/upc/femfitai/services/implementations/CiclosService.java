@@ -19,9 +19,17 @@ import pe.edu.upc.femfitai.repositories.CiclosRepository;
 public class CiclosService implements ICiclosService {
 
     private final CiclosRepository repository;
+    private final UsuarioActualService actual;
+    private final pe.edu.upc.femfitai.repositories.UsuariosRepository usuarios;
+    private final pe.edu.upc.femfitai.repositories.DetalleDiarioCicloRepository detalles;
 
-    public CiclosService(CiclosRepository repository) {
+    public CiclosService(CiclosRepository repository, UsuarioActualService actual,
+                         pe.edu.upc.femfitai.repositories.UsuariosRepository usuarios,
+                         pe.edu.upc.femfitai.repositories.DetalleDiarioCicloRepository detalles) {
         this.repository = repository;
+        this.actual = actual;
+        this.usuarios = usuarios;
+        this.detalles = detalles;
     }
 
     @Override
@@ -37,6 +45,10 @@ public class CiclosService implements ICiclosService {
                     "idUsuario debe estar dentro del rango INTEGER de PostgreSQL");
         }
 
+        validarPropietarioYFechas(datos.getIdUsuario(), datos.getFechaInicio(), datos.getFechaFinEstimada(), datos.getFechaReal());
+        usuarios.bloquear(datos.getIdUsuario().intValue()).orElseThrow(() -> Validaciones.noEncontrado("Usuario"));
+        Validaciones.conflicto(repository.existsByIdUsuarioAndFechaRealIsNull(datos.getIdUsuario()),
+                "La usuaria ya tiene un ciclo activo");
         Ciclos ciclo = new Ciclos();
         ciclo.setIdUsuario(datos.getIdUsuario());
         ciclo.setFechaInicio(datos.getFechaInicio());
@@ -48,7 +60,7 @@ public class CiclosService implements ICiclosService {
     @Override
     @Transactional(readOnly = true)
     public List<CiclosDTO> listar() {
-        return repository.findAll().stream()
+        return repository.findByIdUsuarioOrderByFechaInicioDescIdCicloDesc(actual.id().longValue()).stream()
                 .map(this::convertirADTO)
                 .toList();
     }
@@ -73,6 +85,12 @@ public class CiclosService implements ICiclosService {
                     "idUsuario debe estar dentro del rango INTEGER de PostgreSQL");
         }
 
+        validarPropietarioYFechas(datos.getIdUsuario(), datos.getFechaInicio(), datos.getFechaFinEstimada(), datos.getFechaReal());
+        usuarios.bloquear(datos.getIdUsuario().intValue()).orElseThrow(() -> Validaciones.noEncontrado("Usuario"));
+        if (datos.getFechaReal() == null) {
+            Validaciones.conflicto(repository.existsByIdUsuarioAndFechaRealIsNullAndIdCicloNot(datos.getIdUsuario(), id),
+                    "La usuaria ya tiene otro ciclo activo");
+        }
         ciclo.setIdUsuario(datos.getIdUsuario());
         ciclo.setFechaInicio(datos.getFechaInicio());
         ciclo.setFechaFinEstimada(datos.getFechaFinEstimada());
@@ -83,7 +101,10 @@ public class CiclosService implements ICiclosService {
     @Override
     @Transactional
     public void eliminar(Long id) {
-        repository.delete(obtenerCiclo(id));
+        Ciclos ciclo = obtenerCiclo(id);
+        Validaciones.conflicto(detalles.existsByIdCiclo(id.intValue()), "El ciclo tiene registros diarios relacionados");
+        repository.delete(ciclo);
+        repository.flush();
     }
 
     private Ciclos obtenerCiclo(Long id) {
@@ -94,6 +115,8 @@ public class CiclosService implements ICiclosService {
         return repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "No existe un ciclo con ID " + id));
+        actual.verificar(ciclo.getIdUsuario());
+        return ciclo;
     }
 
     private boolean esInteger(Long valor) {
@@ -108,7 +131,8 @@ public class CiclosService implements ICiclosService {
     @Override
     @Transactional(readOnly = true)
     public List<CiclosDTO> listarPorUsuario(Long idUsuario) {
-        return repository.findByIdUsuario(idUsuario).stream()
+        actual.verificar(idUsuario);
+        return repository.findByIdUsuarioOrderByFechaInicioDescIdCicloDesc(idUsuario).stream()
                 .map(this::convertirADTO)
                 .toList();
     }
@@ -123,5 +147,13 @@ public class CiclosService implements ICiclosService {
         return repository.buscarDetallePorId(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "No existe un ciclo con ID " + id));
+    }
+
+    private void validarPropietarioYFechas(Long usuario, java.time.LocalDate inicio,
+                                           java.time.LocalDate estimada, java.time.LocalDate real) {
+        actual.verificar(usuario);
+        Validaciones.exigir(!inicio.isAfter(java.time.LocalDate.now()), "FechaInicio no puede ser futura");
+        Validaciones.exigir(estimada == null || !estimada.isBefore(inicio), "FechaFinEstimada no puede ser anterior a FechaInicio");
+        Validaciones.exigir(real == null || !real.isBefore(inicio), "FechaFinReal no puede ser anterior a FechaInicio");
     }
 }
