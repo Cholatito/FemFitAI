@@ -4,6 +4,7 @@ import java.util.*;
 
 import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
+import pe.edu.upc.femfitai.dtos.DetalleSesionEjercicioDTO;
 import pe.edu.upc.femfitai.entities.DetalleSesion;
 
 public interface DetalleSesionRepository extends JpaRepository<DetalleSesion, Integer> {

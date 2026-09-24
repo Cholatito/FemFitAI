@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import pe.edu.upc.femfitai.dtos.ActualizarSerieDTO;
+import pe.edu.upc.femfitai.dtos.DetalleSerieDTO;
 import pe.edu.upc.femfitai.services.interfaces.IDetalleSerieService;
 
 @RestController
