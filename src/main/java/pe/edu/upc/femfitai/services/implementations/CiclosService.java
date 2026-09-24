@@ -112,7 +112,7 @@ public class CiclosService implements ICiclosService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                     "No existe un ciclo con ID " + id);
         }
-        return repository.findById(id)
+        Ciclos ciclo = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "No existe un ciclo con ID " + id));
         actual.verificar(ciclo.getIdUsuario());
@@ -140,6 +140,7 @@ public class CiclosService implements ICiclosService {
     @Override
     @Transactional(readOnly = true)
     public CiclosUsuarioDTO buscarDetallePorId(Long id) {
+        obtenerCiclo(id);
         if (id == null || !esInteger(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                     "No existe un ciclo con ID " + id);
