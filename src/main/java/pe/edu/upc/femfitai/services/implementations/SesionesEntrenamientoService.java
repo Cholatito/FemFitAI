@@ -20,13 +20,16 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
     private final SesionesEntrenamientoRepository repository;
     private final RutinasRepository rutinasRepository;
     private final UsuariosRepository usuariosRepository;
+    private final UsuarioActualService actual;
 
     public SesionesEntrenamientoService(SesionesEntrenamientoRepository repository,
                                         RutinasRepository rutinasRepository,
-                                        UsuariosRepository usuariosRepository) {
+                                        UsuariosRepository usuariosRepository,
+                                        UsuarioActualService actual) {
         this.repository = repository;
         this.rutinasRepository = rutinasRepository;
         this.usuariosRepository = usuariosRepository;
+        this.actual = actual;
     }
 
     @Override
@@ -35,10 +38,10 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
-        validar(datos.getIdRutina(), datos.getIdUsuario());
+        Integer idUsuario = actual.id();
+        validarRegistro(datos);
         SesionesEntrenamiento sesion = new SesionesEntrenamiento(
-                datos.getIdRutina(), datos.getIdUsuario(),
-                datos.getFecha() == null ? LocalDateTime.now() : datos.getFecha(),
+                datos.getIdRutina(), idUsuario, LocalDateTime.now(),
                 datos.getDuracionMin(), datos.getNivelEnergia(),
                 datos.getEsfuerzoPercibido(), datos.getEstado());
         return convertirADTO(repository.save(sesion));
@@ -105,6 +108,18 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
     private ResponseStatusException noEncontrada(Integer id) {
         return new ResponseStatusException(HttpStatus.NOT_FOUND,
                 "No existe una sesion con ID " + id);
+    }
+
+    private void validarRegistro(SesionesEntrenamientoDTO datos) {
+        if (datos.getIdRutina() == null)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "IdRutina es obligatorio");
+        if (!rutinasRepository.existsById(datos.getIdRutina()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No existe una rutina con ID " + datos.getIdRutina());
+        if (datos.getDuracionMin() == null || datos.getDuracionMin() < 0)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "DuracionMin no puede ser negativa");
+        // Escala RPE provisional 1..10: Trello exige validar escala pero no publica sus extremos.
+        if (datos.getEsfuerzoPercibido() == null || datos.getEsfuerzoPercibido() < 1 || datos.getEsfuerzoPercibido() > 10)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "EsfuerzoPercibido debe estar entre 1 y 10");
     }
 
     private void validar(Integer idRutina, Integer idUsuario) {
