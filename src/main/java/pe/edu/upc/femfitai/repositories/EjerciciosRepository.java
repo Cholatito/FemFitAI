@@ -13,6 +13,14 @@ public interface EjerciciosRepository extends JpaRepository<Ejercicios, Integer>
             where lower(e.grupoMuscular) = lower(:grupoMuscular)
             order by e.nombre, e.idEjercicio
             """)
+    org.springframework.data.domain.Page<Ejercicios> buscar(
+            @Param("tipo") String tipo, @Param("query") String query,
+            org.springframework.data.domain.Pageable pageable);
+    @Query("""
+            select e from Ejercicios e
+            where lower(e.grupoMuscular) = lower(:grupoMuscular)
+            order by e.nombre, e.idEjercicio
+            """)
     List<Ejercicios> buscarPorGrupoMuscular(@Param("grupoMuscular") String grupoMuscular);
 
     @Query("""

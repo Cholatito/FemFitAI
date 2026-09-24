@@ -15,9 +15,15 @@ import pe.edu.upc.femfitai.services.interfaces.IEjerciciosService;
 @Service
 public class EjerciciosService implements IEjerciciosService {
     private final EjerciciosRepository repository;
+    private final pe.edu.upc.femfitai.repositories.RutinaEjerciciosRepository rutinas;
+    private final pe.edu.upc.femfitai.repositories.DetalleSesionRepository detalles;
 
-    public EjerciciosService(EjerciciosRepository repository) {
+    public EjerciciosService(EjerciciosRepository repository,
+                             pe.edu.upc.femfitai.repositories.RutinaEjerciciosRepository rutinas,
+                             pe.edu.upc.femfitai.repositories.DetalleSesionRepository detalles) {
         this.repository = repository;
+        this.rutinas = rutinas;
+        this.detalles = detalles;
     }
 
     @Override
@@ -30,7 +36,7 @@ public class EjerciciosService implements IEjerciciosService {
         validarLongitud(datos.getGrupoMuscular(), 100, "GrupoMuscular");
         validarLongitud(datos.getTipo(), 50, "Tipo");
         Ejercicios ejercicio = new Ejercicios(datos.getNombre(), datos.getGrupoMuscular(),
-                datos.getTipo(), datos.getDescripcion());
+                datos.getTipo(), descripcionSegura(datos.getDescripcion()));
         return convertirADTO(repository.save(ejercicio));
     }
 
@@ -54,7 +60,7 @@ public class EjerciciosService implements IEjerciciosService {
         ejercicio.setNombre(datos.getNombre());
         ejercicio.setGrupoMuscular(datos.getGrupoMuscular());
         ejercicio.setTipo(datos.getTipo());
-        ejercicio.setDescripcion(datos.getDescripcion());
+        ejercicio.setDescripcion(descripcionSegura(datos.getDescripcion()));
         return convertirADTO(repository.save(ejercicio));
     }
 
@@ -62,6 +68,8 @@ public class EjerciciosService implements IEjerciciosService {
     @Transactional
     public void eliminar(Integer id) {
         Ejercicios ejercicio = obtenerEjercicio(id);
+        Validaciones.conflicto(rutinas.existsByIdEjercicio(id) || detalles.existsByIdEjercicio(id),
+                "El ejercicio tiene registros relacionados");
         try {
             repository.delete(ejercicio);
             // Ejecutar el DELETE dentro del try para capturar las restricciones de integridad.
@@ -107,6 +115,23 @@ public class EjerciciosService implements IEjerciciosService {
         validarLongitud(datos.getNombre(), 100, "Nombre");
         validarLongitud(datos.getGrupoMuscular(), 100, "GrupoMuscular");
         validarLongitud(datos.getTipo(), 50, "Tipo");
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<EjerciciosDTO> buscar(pe.edu.upc.femfitai.dtos.BusquedaEjerciciosDTO c) {
+        Validaciones.exigir(c != null, "Criterios requeridos");
+        var pagina = Validaciones.paginar(c.pagina(), c.tamano());
+        String tipo = c.tipo() == null || c.tipo().isBlank() ? null : c.tipo().trim();
+        String query = c.query() == null || c.query().isBlank() ? null
+                : "%" + c.query().trim().replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
+        return repository.buscar(tipo, query, org.springframework.data.domain.PageRequest.of(
+                pagina.getPageNumber(), pagina.getPageSize(),
+                org.springframework.data.domain.Sort.by("nombre", "idEjercicio"))).map(this::convertirADTO);
+    }
+
+    private String descripcionSegura(String valor) {
+        return valor == null ? null : org.springframework.web.util.HtmlUtils.htmlEscape(valor);
     }
 
     private EjerciciosDTO convertirADTO(Ejercicios ejercicio) {
