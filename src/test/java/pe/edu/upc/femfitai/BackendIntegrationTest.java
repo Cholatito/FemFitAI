@@ -39,12 +39,15 @@ class BackendIntegrationTest {
     @Autowired SesionesEntrenamientoRepository sesiones;
     @Autowired PerfilEntrenamientoRepository perfiles;
     @Autowired RecomendacionesIARepository recomendaciones;
+    @Autowired DetalleSesionRepository detallesSesion;
+    @Autowired DetalleSerieRepository series;
     @Autowired IDetalleDiarioCicloService diarioService;
     @Autowired IPerfilEntrenamientoService perfilService;
     @Autowired IProgresoService progresoService;
     @Autowired IRutinaEjerciciosService rutinaEjerciciosService;
     @Autowired PasswordEncoder encoder;
     @Autowired DataSource dataSource;
+    @Autowired org.springframework.security.oauth2.jwt.JwtEncoder jwtEncoder;
 
     private final HttpClient client = HttpClient.newHttpClient();
     private final JsonMapper json = JsonMapper.builder().build();
@@ -90,6 +93,197 @@ class BackendIntegrationTest {
         try (var connection = dataSource.getConnection()) {
             assertTrue(connection.getMetaData().getURL().startsWith("jdbc:h2:mem:"));
         }
+    }
+
+    @Test void userDetailsArePrivateAndAdministrativePermissionsRemainAvailable() throws Exception {
+        var owner = usuario("USUARIA");
+        String path = "/usuarios/" + owner.getIdUsuario();
+        assertEquals(401, request("GET", path, null, null).statusCode());
+        assertEquals(200, request("GET", path, null, token(owner)).statusCode());
+        for (String role : List.of("USUARIA", "TESTER")) {
+            String jwt = token(usuario(role));
+            var denied = request("GET", path, null, jwt);
+            assertEquals(403, denied.statusCode(), denied.body());
+            assertEquals(403, json.readTree(denied.body()).get("status").asInt());
+            assertEquals(path, json.readTree(denied.body()).get("path").asText());
+            assertFalse(denied.body().contains(owner.getCorreo()));
+            assertEquals(403, request("GET", "/usuarios", null, jwt).statusCode());
+            assertEquals(403, request("PUT", path, "{}", jwt).statusCode());
+            assertEquals(403, request("DELETE", path, null, jwt).statusCode());
+        }
+        for (String role : List.of("ADMIN", "PROGRAMADOR")) {
+            String jwt = token(usuario(role));
+            assertEquals(200, request("GET", path, null, jwt).statusCode());
+            assertEquals(200, request("GET", "/usuarios", null, jwt).statusCode());
+            assertEquals(400, request("PUT", path, "{}", jwt).statusCode());
+            var disposable = usuario("USUARIA");
+            assertEquals(204, request("DELETE", "/usuarios/" + disposable.getIdUsuario(), null, jwt).statusCode());
+            assertFalse(usuarios.existsById(disposable.getIdUsuario()));
+        }
+    }
+
+    @Test void expiredAndTamperedJwtCannotAccessPrivateEndpoints() throws Exception {
+        var u = usuario("USUARIA");
+        String valid = token(u);
+        int signature = valid.lastIndexOf('.') + 1;
+        String tampered = valid.substring(0, signature) + (valid.charAt(signature) == 'A' ? 'B' : 'A')
+                + valid.substring(signature + 1);
+        var claims = org.springframework.security.oauth2.jwt.JwtClaimsSet.builder()
+                .subject(u.getCorreo()).issuedAt(Instant.now().minusSeconds(7200))
+                .expiresAt(Instant.now().minusSeconds(3600)).claim("roles", "ROLE_USUARIA").build();
+        var header = org.springframework.security.oauth2.jwt.JwsHeader
+                .with(org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS512).build();
+        String expired = jwtEncoder.encode(org.springframework.security.oauth2.jwt.JwtEncoderParameters
+                .from(header, claims)).getTokenValue();
+        for (String jwt : List.of(tampered, expired, "invalid")) {
+            assertEquals(401, request("GET", "/progreso", null, jwt).statusCode());
+        }
+        assertEquals(200, request("GET", "/progreso", null, valid).statusCode());
+    }
+
+    @Test void blankRegistrationPasswordsAreRejectedWithoutInventingComplexityRules() throws Exception {
+        for (String password : List.of("null", "\"\"", "\"   \"")) {
+            String correo = UUID.randomUUID() + "@example.test";
+            var response = request("POST", "/usuarios", "{\"nombres\":\"Ana\",\"apellidos\":\"Test\",\"correo\":\""
+                    + correo + "\",\"password\":" + password + "}", null);
+            assertEquals(400, response.statusCode(), response.body());
+            assertEquals(400, json.readTree(response.body()).get("status").asInt());
+            assertTrue(usuarios.findByCorreo(correo).isEmpty());
+        }
+    }
+
+    @Test void generationWithoutRealProviderReturnsExplicitErrorAndPersistsNothing() throws Exception {
+        var u = usuario("USUARIA");
+        String jwt = token(u);
+        long before = recomendaciones.count();
+        assertEquals(401, request("POST", "/recomendaciones/generar", "{}", null).statusCode());
+        var unavailable = request("POST", "/recomendaciones/generar", "{}", jwt);
+        assertEquals(503, unavailable.statusCode(), unavailable.body());
+        assertTrue(json.readTree(unavailable.body()).get("message").asText().contains("falta definir"));
+        assertEquals("/recomendaciones/generar", json.readTree(unavailable.body()).get("path").asText());
+        var foreignRoutine = rutina(usuario("USUARIA"));
+        assertEquals(403, request("POST", "/recomendaciones/generar",
+                "{\"idRutina\":" + foreignRoutine.getIdRutina() + "}", jwt).statusCode());
+        assertEquals(404, request("POST", "/recomendaciones/generar", "{\"idRutina\":2147483647}", jwt).statusCode());
+        assertEquals(400, request("POST", "/recomendaciones/generar", "{\"idRutina\":0}", jwt).statusCode());
+        assertEquals(400, request("POST", "/recomendaciones/generar", "{\"idRutina\":2147483648}", jwt).statusCode());
+        assertEquals(before, recomendaciones.count());
+    }
+
+    @Test void currentRpeBoundariesPersistOnPostAndPut() throws Exception {
+        var u = usuario("USUARIA");
+        var r = rutina(u);
+        String jwt = token(u);
+        for (int rpe : List.of(1, 10)) {
+            String body = "{\"idRutina\":" + r.getIdRutina() + ",\"duracionMin\":0,\"nivelEnergia\":3,\"esfuerzoPercibido\":" + rpe + "}";
+            var created = request("POST", "/sesiones", body, jwt);
+            assertEquals(201, created.statusCode(), created.body());
+            int id = json.readTree(created.body()).get("idSesion").asInt();
+            assertEquals(rpe, sesiones.findById(id).orElseThrow().getEsfuerzoPercibido());
+            assertEquals(200, request("PUT", "/sesiones/" + id, body, jwt).statusCode());
+            var fetched = request("GET", "/sesiones/" + id, null, jwt);
+            assertEquals(200, fetched.statusCode());
+            assertEquals(rpe, json.readTree(fetched.body()).get("esfuerzoPercibido").asInt());
+        }
+    }
+
+    @Test void cyclesAndRoutinesCannotBeReadModifiedOrTransferredByAnotherAccount() throws Exception {
+        var owner = usuario("USUARIA");
+        var other = usuario("USUARIA");
+        String ownerJwt = token(owner);
+        String otherJwt = token(other);
+        var c = ciclo(owner);
+        var r = rutina(owner);
+        String cyclePath = "/ciclos/" + c.getIdCiclo();
+        String routinePath = "/rutinas/" + r.getIdRutina();
+        String cycleBody = "{\"idUsuario\":" + other.getIdUsuario() + ",\"fechaInicio\":\"" + LocalDate.now() + "\"}";
+        String routineBody = "{\"idUsuario\":" + other.getIdUsuario() + ",\"nombre\":\"Transferencia\"}";
+        for (String path : List.of(cyclePath, "/ciclos/detalle/" + c.getIdCiclo(),
+                "/ciclos/usuario/" + owner.getIdUsuario(), routinePath, "/rutinas/usuario/" + owner.getIdUsuario())) {
+            assertEquals(403, request("GET", path, null, otherJwt).statusCode(), path);
+        }
+        for (String jwt : List.of(ownerJwt, otherJwt)) {
+            assertEquals(403, request("PUT", cyclePath, cycleBody, jwt).statusCode());
+            assertEquals(403, request("PUT", routinePath, routineBody, jwt).statusCode());
+        }
+        assertEquals(403, request("DELETE", cyclePath, null, otherJwt).statusCode());
+        assertEquals(403, request("DELETE", routinePath, null, otherJwt).statusCode());
+        assertEquals(0, json.readTree(request("GET", "/ciclos", null, otherJwt).body()).size());
+        assertEquals(0, json.readTree(request("GET", "/rutinas", null, otherJwt).body()).size());
+        assertEquals(owner.getIdUsuario().longValue(), ciclos.findById(c.getIdCiclo()).orElseThrow().getIdUsuario());
+        assertEquals(owner.getIdUsuario(), rutinas.findById(r.getIdRutina()).orElseThrow().getIdUsuario());
+        // Long se conserva en ciclos por compatibilidad, sin conversion que trunque IDs.
+        assertEquals(404, request("DELETE", "/ciclos/4294967297", null, ownerJwt).statusCode());
+        assertTrue(ciclos.existsById(c.getIdCiclo()));
+    }
+
+    @Test void sessionDetailsAndSeriesEnforceOwnerAndKeepReferencesOnPut() throws Exception {
+        var owner = usuario("USUARIA");
+        var other = usuario("USUARIA");
+        var r = rutina(owner);
+        var session = sesiones.saveAndFlush(new SesionesEntrenamiento(r.getIdRutina(), owner.getIdUsuario(),
+                LocalDateTime.now(), 30, 3, 5, "Completada"));
+        var e = ejercicios.saveAndFlush(new Ejercicios("Privacidad", null, null, null));
+        String jwt = token(owner);
+        String otherJwt = token(other);
+        String detailBody = "{\"idSesion\":" + session.getIdSesion() + ",\"idEjercicio\":" + e.getIdEjercicio() + "}";
+        var detail = request("POST", "/detalle-sesion", detailBody, jwt);
+        assertEquals(201, detail.statusCode(), detail.body());
+        int detailId = json.readTree(detail.body()).get("idDetalle").asInt();
+        String seriesBody = "{\"idDetalle\":" + detailId + ",\"numeroSerie\":1,\"repeticiones\":10,\"pesoKg\":20}";
+        var createdSeries = request("POST", "/detalle-serie", seriesBody, jwt);
+        assertEquals(201, createdSeries.statusCode(), createdSeries.body());
+        int seriesId = json.readTree(createdSeries.body()).get("idSerie").asInt();
+        assertEquals(403, request("POST", "/detalle-sesion", detailBody, otherJwt).statusCode());
+        assertEquals(403, request("POST", "/detalle-serie", seriesBody, otherJwt).statusCode());
+        assertEquals(403, request("GET", "/detalle-sesion/sesion/" + session.getIdSesion(), null, otherJwt).statusCode());
+        assertEquals(403, request("GET", "/detalle-serie/detalle/" + detailId, null, otherJwt).statusCode());
+        assertEquals(403, request("PUT", "/detalle-sesion/" + detailId, "{\"observacion\":\"Ajena\"}", otherJwt).statusCode());
+        assertEquals(403, request("PUT", "/detalle-serie/" + seriesId, "{\"repeticiones\":12,\"pesoKg\":25}", otherJwt).statusCode());
+        assertEquals(403, request("DELETE", "/detalle-sesion/" + detailId, null, otherJwt).statusCode());
+        assertEquals(403, request("DELETE", "/detalle-serie/" + seriesId, null, otherJwt).statusCode());
+        assertEquals(200, request("PUT", "/detalle-sesion/" + detailId,
+                "{\"observacion\":\"Propia\",\"idSesion\":2147483647}", jwt).statusCode());
+        assertEquals(200, request("PUT", "/detalle-serie/" + seriesId,
+                "{\"repeticiones\":12,\"pesoKg\":25,\"idDetalle\":2147483647}", jwt).statusCode());
+        assertEquals(session.getIdSesion(), detallesSesion.findById(detailId).orElseThrow().getIdSesion());
+        assertEquals("Propia", detallesSesion.findById(detailId).orElseThrow().getObservacion());
+        assertEquals(detailId, series.findById(seriesId).orElseThrow().getIdDetalle());
+        assertEquals(12, series.findById(seriesId).orElseThrow().getRepeticiones());
+        assertEquals(409, request("DELETE", "/detalle-sesion/" + detailId, null, jwt).statusCode());
+        assertEquals(204, request("DELETE", "/detalle-serie/" + seriesId, null, jwt).statusCode());
+        assertEquals(204, request("DELETE", "/detalle-sesion/" + detailId, null, jwt).statusCode());
+        assertFalse(series.existsById(seriesId));
+        assertFalse(detallesSesion.existsById(detailId));
+    }
+
+    @Test void historyRoutineAndProfileEndpointsPersistAndRemainPrivateWithDiagnosticTimings() throws Exception {
+        var u = usuario("USUARIA");
+        var other = usuario("USUARIA");
+        String jwt = token(u);
+        String otherJwt = token(other);
+        assertEquals(404, request("GET", "/perfiles", null, jwt).statusCode());
+        assertEquals(201, request("POST", "/perfiles", "{\"nivelEntrenamiento\":\"Inicial\",\"objetivoPrincipal\":\"Entrenar\",\"diasDisponibles\":3,\"tiempoDisponible\":30,\"fechaNacimiento\":\"2000-01-01\"}", jwt).statusCode());
+        var progress = request("POST", "/progreso", "{\"fecha\":\"" + LocalDate.now() + "\",\"pesoKg\":60,\"notaPersonal\":\"Prueba\"}", jwt);
+        assertEquals(201, progress.statusCode(), progress.body());
+        int progressId = json.readTree(progress.body()).get("idProgreso").asInt();
+        var r = rutina(u);
+        var e = ejercicios.saveAndFlush(new Ejercicios("Diagnostico", "Piernas", "Fuerza", "Prueba"));
+        var relation = request("POST", "/rutina-ejercicios", "{\"idRutina\":" + r.getIdRutina()
+                + ",\"idEjercicio\":" + e.getIdEjercicio() + ",\"series\":3,\"repeticiones\":10,\"descansoSeg\":60}", jwt);
+        assertEquals(201, relation.statusCode(), relation.body());
+        for (String path : List.of("/progreso", "/rutina-ejercicios/rutina/" + r.getIdRutina(), "/perfiles")) {
+            long start = System.nanoTime();
+            var response = request("GET", path, null, jwt);
+            System.out.printf("H2 diagnostic only: GET %s = %.3fms%n", path, (System.nanoTime() - start) / 1e6);
+            assertEquals(200, response.statusCode(), response.body());
+        }
+        assertEquals(403, request("GET", "/progreso/" + progressId, null, otherJwt).statusCode());
+        assertEquals(0, json.readTree(request("GET", "/progreso", null, otherJwt).body()).get("totalElements").asInt());
+        assertEquals(403, request("GET", "/rutina-ejercicios/rutina/" + r.getIdRutina(), null, otherJwt).statusCode());
+        assertEquals(404, request("GET", "/perfiles", null, otherJwt).statusCode());
+        assertEquals(404, request("PUT", "/perfiles", "{\"nivelEntrenamiento\":\"Inicial\",\"objetivoPrincipal\":\"Otro\"}", otherJwt).statusCode());
+        assertEquals("Entrenar", perfiles.findByIdUsuario(u.getIdUsuario()).orElseThrow().getObjetivoPrincipal());
     }
 
     @Test void registrationCanLoginAndPasswordsAreHashed() throws Exception {
@@ -156,6 +350,9 @@ class BackendIntegrationTest {
                     + ",\"nivelEnergia\":3,\"faseRegistrada\":\"" + phase + "\"}", jwt);
             assertEquals(201, response.statusCode(), response.body());
             System.out.printf("H2 diagnostic only: daily HTTP save=%.3fms%n", (System.nanoTime() - started) / 1e6);
+            var persisted = diarios.buscarPorUsuarioYFecha(u.getIdUsuario().longValue(), LocalDate.now()).get(0);
+            assertEquals(phase, persisted.getFaseRegistrada());
+            assertEquals(3, persisted.getNivelEnergia());
         }
         assertEquals(1, diarios.buscarPorUsuarioYFecha(u.getIdUsuario().longValue(), LocalDate.now()).size());
         for (String value : List.of("0", "6", "null")) {

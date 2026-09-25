@@ -20,10 +20,12 @@ import pe.edu.upc.femfitai.repositories.IUsersRepository;
 public class UsuariosService implements IUsuariosService {
     private final UsuariosRepository repository;
     private final PasswordEncoder passwordEncoder;
+    private final UsuarioActualService actual;
 
-    public UsuariosService(UsuariosRepository repository, PasswordEncoder passwordEncoder) {
+    public UsuariosService(UsuariosRepository repository, PasswordEncoder passwordEncoder, UsuarioActualService actual) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
+        this.actual = actual;
     }
 
     @Override
@@ -52,6 +54,10 @@ public class UsuariosService implements IUsuariosService {
     @Override
     @Transactional(readOnly = true)
     public UsuariosDTO buscarPorId(Integer id) {
+        var solicitante = actual.obtener();
+        if (!java.util.Set.of("ADMIN", "PROGRAMADOR").contains(String.valueOf(solicitante.getRol()).trim().toUpperCase(Locale.ROOT))) {
+            actual.verificar(id);
+        }
         return convertirADTO(obtenerUsuario(id));
     }
 
