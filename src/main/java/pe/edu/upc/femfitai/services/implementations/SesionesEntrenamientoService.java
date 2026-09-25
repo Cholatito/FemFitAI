@@ -123,7 +123,8 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
         Validaciones.texto(datos.getEstado(), 30, "Estado", false);
         if (datos.getDuracionMin() == null || datos.getDuracionMin() < 0)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "DuracionMin no puede ser negativa");
-        // Escala RPE provisional 1..10: Trello exige validar escala pero no publica sus extremos.
+        if (datos.getNivelEnergia() == null || datos.getNivelEnergia() < 1 || datos.getNivelEnergia() > 5)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "NivelEnergia debe estar entre 1 y 5");
         if (datos.getEsfuerzoPercibido() == null || datos.getEsfuerzoPercibido() < 1 || datos.getEsfuerzoPercibido() > 10)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "EsfuerzoPercibido debe estar entre 1 y 10");
     }

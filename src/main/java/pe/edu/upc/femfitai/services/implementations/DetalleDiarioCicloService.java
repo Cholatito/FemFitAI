@@ -13,8 +13,7 @@ import static pe.edu.upc.femfitai.services.implementations.Validaciones.*;
 
 @Service
 public class DetalleDiarioCicloService implements IDetalleDiarioCicloService {
-    // Trello exige una escala establecida, pero no indica sus extremos.
-    // Valores provisionales para que el rango quede centralizado y sea facil ajustarlo.
+    // La escala actual se conserva mientras se confirman los extremos funcionales en US08.
     private static final int ENERGIA_MIN = 1;
     private static final int ENERGIA_MAX = 5;
 

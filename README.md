@@ -4,7 +4,7 @@ Backend REST para gestionar usuarios, rutinas, ciclos y sesiones de entrenamient
 
 ## Tecnologías
 
-- Java 17.
+- Java 25.
 - Spring Boot 4.1.1.
 - Spring Data JPA.
 - PostgreSQL.
@@ -12,7 +12,7 @@ Backend REST para gestionar usuarios, rutinas, ciclos y sesiones de entrenamient
 
 ## Requisitos
 
-- JDK 17 instalado y `JAVA_HOME` configurado.
+- JDK 25 instalado y `JAVA_HOME` configurado.
 - PostgreSQL disponible y una base de datos local con acceso autorizado.
 - Conexión a Internet para descargar Maven y las dependencias en la primera compilación.
 - Maven instalado solo si prefieres usar `mvn` en lugar del wrapper incluido.

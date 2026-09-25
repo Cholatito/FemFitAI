@@ -42,7 +42,12 @@ public class GeneracionRecomendacionesService {
                     "Generacion no disponible: falta definir e integrar la regla o proveedor y los datos minimos requeridos");
         }
         // No mantener una transaccion de base de datos abierta durante la generacion.
-        var resultado = generador.generar(usuario, datos.idRutina());
+        GeneradorRecomendaciones.Resultado resultado;
+        try {
+            resultado = generador.generar(usuario, datos.idRutina());
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
         if (resultado == null || resultado.contenido() == null || resultado.contenido().isBlank()
                 || resultado.motivo() == null || resultado.motivo().isBlank()
                 || (resultado.tipo() != null && resultado.tipo().length() > 50)) {

@@ -95,6 +95,17 @@ class BackendIntegrationTest {
         }
     }
 
+    @Test void openApiPublishesFemFitAiTitleAndBearerJwtScheme() throws Exception {
+        var response = request("GET", "/v3/api-docs", null, null);
+        assertEquals(200, response.statusCode(), response.body());
+        JsonNode document = json.readTree(response.body());
+        assertEquals("FemFitAI API", document.get("info").get("title").textValue());
+        assertEquals("bearer", document.get("components").get("securitySchemes")
+            .get("bearerAuth").get("scheme").textValue());
+        assertEquals("JWT", document.get("components").get("securitySchemes")
+            .get("bearerAuth").get("bearerFormat").textValue());
+    }
+
     @Test void userDetailsArePrivateAndAdministrativePermissionsRemainAvailable() throws Exception {
         var owner = usuario("USUARIA");
         String path = "/usuarios/" + owner.getIdUsuario();
@@ -152,22 +163,26 @@ class BackendIntegrationTest {
         }
     }
 
-    @Test void generationWithoutRealProviderReturnsExplicitErrorAndPersistsNothing() throws Exception {
+    @Test void generationUsesTheProductionGeneratorAndHandlesOwnershipValidation() throws Exception {
         var u = usuario("USUARIA");
         String jwt = token(u);
+        perfiles.saveAndFlush(new PerfilEntrenamiento(u.getIdUsuario(), "Inicial", "Entrenar", 3, 30, LocalDate.of(2000, 1, 1)));
         long before = recomendaciones.count();
         assertEquals(401, request("POST", "/recomendaciones/generar", "{}", null).statusCode());
-        var unavailable = request("POST", "/recomendaciones/generar", "{}", jwt);
-        assertEquals(503, unavailable.statusCode(), unavailable.body());
-        assertTrue(json.readTree(unavailable.body()).get("message").asText().contains("falta definir"));
-        assertEquals("/recomendaciones/generar", json.readTree(unavailable.body()).get("path").asText());
+        var created = request("POST", "/recomendaciones/generar", "{}", jwt);
+        assertEquals(201, created.statusCode(), created.body());
+        assertTrue(json.readTree(created.body()).get("contenido").asText().contains("perfil")
+                || json.readTree(created.body()).get("contenido").asText().contains("Plan recomendado"));
+        assertEquals(before + 1, recomendaciones.count());
         var foreignRoutine = rutina(usuario("USUARIA"));
         assertEquals(403, request("POST", "/recomendaciones/generar",
                 "{\"idRutina\":" + foreignRoutine.getIdRutina() + "}", jwt).statusCode());
         assertEquals(404, request("POST", "/recomendaciones/generar", "{\"idRutina\":2147483647}", jwt).statusCode());
         assertEquals(400, request("POST", "/recomendaciones/generar", "{\"idRutina\":0}", jwt).statusCode());
         assertEquals(400, request("POST", "/recomendaciones/generar", "{\"idRutina\":2147483648}", jwt).statusCode());
-        assertEquals(before, recomendaciones.count());
+
+        perfiles.deleteAll();
+        assertEquals(400, request("POST", "/recomendaciones/generar", "{}", jwt).statusCode());
     }
 
     @Test void currentRpeBoundariesPersistOnPostAndPut() throws Exception {
@@ -175,7 +190,7 @@ class BackendIntegrationTest {
         var r = rutina(u);
         String jwt = token(u);
         for (int rpe : List.of(1, 10)) {
-            String body = "{\"idRutina\":" + r.getIdRutina() + ",\"duracionMin\":0,\"nivelEnergia\":3,\"esfuerzoPercibido\":" + rpe + "}";
+            String body = "{\"idRutina\":" + r.getIdRutina() + ",\"duracionMin\":1,\"nivelEnergia\":3,\"esfuerzoPercibido\":" + rpe + "}";
             var created = request("POST", "/sesiones", body, jwt);
             assertEquals(201, created.statusCode(), created.body());
             int id = json.readTree(created.body()).get("idSesion").asInt();
@@ -230,18 +245,30 @@ class BackendIntegrationTest {
         var detail = request("POST", "/detalle-sesion", detailBody, jwt);
         assertEquals(201, detail.statusCode(), detail.body());
         int detailId = json.readTree(detail.body()).get("idDetalle").asInt();
+        assertEquals(404, request("POST", "/detalle-sesion",
+            "{\"idSesion\":2147483647,\"idEjercicio\":" + e.getIdEjercicio() + "}", jwt).statusCode());
+        assertEquals(404, request("POST", "/detalle-sesion",
+            "{\"idSesion\":" + session.getIdSesion() + ",\"idEjercicio\":2147483647}", jwt).statusCode());
         String seriesBody = "{\"idDetalle\":" + detailId + ",\"numeroSerie\":1,\"repeticiones\":10,\"pesoKg\":20}";
         var createdSeries = request("POST", "/detalle-serie", seriesBody, jwt);
         assertEquals(201, createdSeries.statusCode(), createdSeries.body());
         int seriesId = json.readTree(createdSeries.body()).get("idSerie").asInt();
+        for (String invalid : List.of("{\"repeticiones\":0,\"pesoKg\":20}",
+            "{\"repeticiones\":-1,\"pesoKg\":20}",
+            "{\"repeticiones\":10,\"pesoKg\":-1}")) {
+            assertEquals(400, request("PUT", "/detalle-serie/" + seriesId, invalid, jwt).statusCode());
+        }
         assertEquals(403, request("POST", "/detalle-sesion", detailBody, otherJwt).statusCode());
         assertEquals(403, request("POST", "/detalle-serie", seriesBody, otherJwt).statusCode());
         assertEquals(403, request("GET", "/detalle-sesion/sesion/" + session.getIdSesion(), null, otherJwt).statusCode());
         assertEquals(403, request("GET", "/detalle-serie/detalle/" + detailId, null, otherJwt).statusCode());
         assertEquals(403, request("PUT", "/detalle-sesion/" + detailId, "{\"observacion\":\"Ajena\"}", otherJwt).statusCode());
+        assertEquals(400, request("PUT", "/detalle-sesion/" + detailId,
+            "{\"observacion\":\"" + "O".repeat(256) + "\"}", jwt).statusCode());
         assertEquals(403, request("PUT", "/detalle-serie/" + seriesId, "{\"repeticiones\":12,\"pesoKg\":25}", otherJwt).statusCode());
         assertEquals(403, request("DELETE", "/detalle-sesion/" + detailId, null, otherJwt).statusCode());
         assertEquals(403, request("DELETE", "/detalle-serie/" + seriesId, null, otherJwt).statusCode());
+        assertEquals(404, request("DELETE", "/detalle-serie/2147483647", null, jwt).statusCode());
         assertEquals(200, request("PUT", "/detalle-sesion/" + detailId,
                 "{\"observacion\":\"Propia\",\"idSesion\":2147483647}", jwt).statusCode());
         assertEquals(200, request("PUT", "/detalle-serie/" + seriesId,
@@ -250,8 +277,14 @@ class BackendIntegrationTest {
         assertEquals("Propia", detallesSesion.findById(detailId).orElseThrow().getObservacion());
         assertEquals(detailId, series.findById(seriesId).orElseThrow().getIdDetalle());
         assertEquals(12, series.findById(seriesId).orElseThrow().getRepeticiones());
+        var zeroWeight = request("POST", "/detalle-serie", "{\"idDetalle\":" + detailId
+                + ",\"numeroSerie\":2,\"repeticiones\":10,\"pesoKg\":0}", jwt);
+        assertEquals(201, zeroWeight.statusCode(), zeroWeight.body());
+        int zeroWeightId = json.readTree(zeroWeight.body()).get("idSerie").asInt();
+        assertEquals(0, series.findById(zeroWeightId).orElseThrow().getPesoKg().signum());
         assertEquals(409, request("DELETE", "/detalle-sesion/" + detailId, null, jwt).statusCode());
         assertEquals(204, request("DELETE", "/detalle-serie/" + seriesId, null, jwt).statusCode());
+        assertEquals(204, request("DELETE", "/detalle-serie/" + zeroWeightId, null, jwt).statusCode());
         assertEquals(204, request("DELETE", "/detalle-sesion/" + detailId, null, jwt).statusCode());
         assertFalse(series.existsById(seriesId));
         assertFalse(detallesSesion.existsById(detailId));
@@ -284,6 +317,26 @@ class BackendIntegrationTest {
         assertEquals(404, request("GET", "/perfiles", null, otherJwt).statusCode());
         assertEquals(404, request("PUT", "/perfiles", "{\"nivelEntrenamiento\":\"Inicial\",\"objetivoPrincipal\":\"Otro\"}", otherJwt).statusCode());
         assertEquals("Entrenar", perfiles.findByIdUsuario(u.getIdUsuario()).orElseThrow().getObjetivoPrincipal());
+    }
+
+    @Test void detailSeriesValidateRepetitionsWeightAndExistingDetail() throws Exception {
+        var owner = usuario("USUARIA");
+        var routine = rutina(owner);
+        var session = sesiones.saveAndFlush(new SesionesEntrenamiento(routine.getIdRutina(), owner.getIdUsuario(),
+                LocalDateTime.now(), 30, 3, 5, "Completada"));
+        var exercise = ejercicios.saveAndFlush(new Ejercicios("Serie validacion", null, null, null));
+        var detail = detallesSesion.saveAndFlush(new DetalleSesion(session.getIdSesion(), exercise.getIdEjercicio(), null));
+        String jwt = token(owner);
+        long before = series.count();
+        for (String body : List.of(
+                "{\"idDetalle\":" + detail.getIdDetalle() + ",\"numeroSerie\":1,\"repeticiones\":0,\"pesoKg\":1}",
+                "{\"idDetalle\":" + detail.getIdDetalle() + ",\"numeroSerie\":1,\"repeticiones\":1,\"pesoKg\":-1}",
+                "{\"idDetalle\":" + detail.getIdDetalle() + ",\"numeroSerie\":1,\"repeticiones\":null,\"pesoKg\":1}",
+                "{\"idDetalle\":2147483647,\"numeroSerie\":1,\"repeticiones\":1,\"pesoKg\":1}")) {
+            var response = request("POST", "/detalle-serie", body, jwt);
+            assertTrue(response.statusCode() == 400 || response.statusCode() == 404, response.body());
+            assertEquals(before, series.count());
+        }
     }
 
     @Test void registrationCanLoginAndPasswordsAreHashed() throws Exception {
@@ -340,6 +393,34 @@ class BackendIntegrationTest {
         assertEquals(200, request("GET", "/ejercicios/buscar", null, jwt).statusCode());
     }
 
+        @Test void exerciseLimitsAndDescriptionPayloadsAreValidated() throws Exception {
+        String jwt = token(usuario("ADMIN"));
+        String validName = "N".repeat(100);
+        String validType = "T".repeat(50);
+        String normalDescription = "Descripcion normal: movilidad < 3 y control de respiracion";
+        var created = request("POST", "/ejercicios", "{\"nombre\":\"" + validName
+            + "\",\"tipo\":\"" + validType + "\",\"descripcion\":\""
+            + normalDescription + "\"}", jwt);
+        assertEquals(201, created.statusCode(), created.body());
+        int id = json.readTree(created.body()).get("idEjercicio").asInt();
+        assertEquals(org.springframework.web.util.HtmlUtils.htmlEscape(normalDescription),
+                ejercicios.findById(id).orElseThrow().getDescripcion());
+        assertEquals(400, request("POST", "/ejercicios", "{\"nombre\":\""
+            + "N".repeat(101) + "\"}", jwt).statusCode());
+        assertEquals(400, request("POST", "/ejercicios", "{\"nombre\":\"Nombre\",\"tipo\":\""
+            + "T".repeat(51) + "\"}", jwt).statusCode());
+        for (String payload : List.of("<script>alert(1)</script>", "<img src=x onerror=alert(1)>",
+            "javascript:alert(1)")) {
+            var invalid = request("POST", "/ejercicios", "{\"nombre\":\"Nombre\",\"descripcion\":\""
+                + payload + "\"}", jwt);
+            assertEquals(400, invalid.statusCode(), invalid.body());
+            assertEquals(400, json.readTree(invalid.body()).get("status").asInt());
+        }
+        var invalidUpdate = request("PUT", "/ejercicios/" + id,
+            "{\"nombre\":\"Nombre\",\"descripcion\":\"<script>x</script>\"}", jwt);
+        assertEquals(400, invalidUpdate.statusCode(), invalidUpdate.body());
+        }
+
     @Test void dailyPhasesEnergyAndUpsertAreValidated() throws Exception {
         var u = usuario("USUARIA");
         var c = ciclo(u);
@@ -377,6 +458,25 @@ class BackendIntegrationTest {
                         c2.getIdCiclo().intValue(), LocalDate.now(), "Folicular", 4, "dos")));
         assertEquals(1, diarios.buscarPorUsuarioYFecha(u.getIdUsuario().longValue(), LocalDate.now()).size());
     }
+
+        @Test void dailyObservationsAreOptionalAndRespectDatabaseLimit() throws Exception {
+        var u = usuario("USUARIA");
+        var c = ciclo(u);
+        String jwt = token(u);
+        var optional = request("POST", "/detalle-diario", "{\"idCiclo\":" + c.getIdCiclo()
+            + ",\"nivelEnergia\":3,\"observaciones\":null}", jwt);
+        assertEquals(201, optional.statusCode(), optional.body());
+        String observations = "O".repeat(255);
+        var maximum = request("PUT", "/detalle-diario", "{\"idCiclo\":" + c.getIdCiclo()
+            + ",\"nivelEnergia\":3,\"observaciones\":\"" + observations + "\"}", jwt);
+        assertEquals(200, maximum.statusCode(), maximum.body());
+        assertEquals(observations, diarios.buscarPorUsuarioYFecha(u.getIdUsuario().longValue(), LocalDate.now())
+            .get(0).getObservaciones());
+        var tooLong = request("PUT", "/detalle-diario", "{\"idCiclo\":" + c.getIdCiclo()
+            + ",\"nivelEnergia\":3,\"observaciones\":\"" + "O".repeat(256) + "\"}", jwt);
+        assertEquals(400, tooLong.statusCode(), tooLong.body());
+        assertEquals(400, json.readTree(tooLong.body()).get("status").asInt());
+        }
 
     private void runConcurrently(Usuarios u, Runnable first, Runnable second) throws Exception {
         ExecutorService executor = Executors.newFixedThreadPool(2);

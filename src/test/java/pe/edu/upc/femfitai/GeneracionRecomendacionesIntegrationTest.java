@@ -27,6 +27,7 @@ class GeneracionRecomendacionesIntegrationTest {
     @LocalServerPort int port;
     @Autowired UsuariosRepository usuarios;
     @Autowired RutinasRepository rutinas;
+    @Autowired PerfilEntrenamientoRepository perfiles;
     @Autowired RecomendacionesIARepository recomendaciones;
     @Autowired PasswordEncoder encoder;
     @MockitoBean GeneradorRecomendaciones generador;
@@ -112,8 +113,12 @@ class GeneracionRecomendacionesIntegrationTest {
     @Test void malformedAdapterOutputIsNotPersisted() throws Exception {
         long before = recomendaciones.count();
         for (var result : java.util.Arrays.asList(null,
+                new GeneradorRecomendaciones.Resultado("Fixture", null, "Motivo"),
+                new GeneradorRecomendaciones.Resultado("Fixture", "", "Motivo"),
                 new GeneradorRecomendaciones.Resultado("Fixture", " ", "Motivo"),
                 new GeneradorRecomendaciones.Resultado("Fixture", "Contenido", null),
+                new GeneradorRecomendaciones.Resultado("Fixture", "Contenido", ""),
+                new GeneradorRecomendaciones.Resultado("Fixture", "Contenido", "   "),
                 new GeneradorRecomendaciones.Resultado("x".repeat(51), "Contenido", "Motivo"))) {
             when(generador.generar(owner.getIdUsuario(), null)).thenReturn(result);
             var response = request("POST", "/recomendaciones/generar", "{}");

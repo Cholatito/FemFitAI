@@ -15,9 +15,9 @@ public class OpenApiConfig {
 
         return new OpenAPI()
                 .info(new Info()
-                        .title("Demo API")
+                        .title("FemFitAI API")
                         .version("1.0")
-                        .description("API REST con Spring Security y JWT"))
+                        .description("API REST de FemFitAI para gestionar ciclos, rutinas y sesiones de entrenamiento"))
                 .components(new Components()
                         .addSecuritySchemes(
                                 "bearerAuth",

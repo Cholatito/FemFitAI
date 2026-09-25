@@ -1,6 +1,7 @@
 package pe.edu.upc.femfitai.services.implementations;
 
 import java.util.List;
+import java.util.regex.Pattern;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,8 @@ import pe.edu.upc.femfitai.services.interfaces.IEjerciciosService;
 
 @Service
 public class EjerciciosService implements IEjerciciosService {
+    private static final Pattern CONTENIDO_PELIGROSO = Pattern.compile(
+            "(?i)<\\s*(script|iframe|object|embed|svg)\\b|javascript\\s*:|\\bon[a-z]+\\s*=");
     private final EjerciciosRepository repository;
     private final pe.edu.upc.femfitai.repositories.RutinaEjerciciosRepository rutinas;
     private final pe.edu.upc.femfitai.repositories.DetalleSesionRepository detalles;
@@ -35,6 +38,7 @@ public class EjerciciosService implements IEjerciciosService {
         validarLongitud(datos.getNombre(), 100, "Nombre");
         validarLongitud(datos.getGrupoMuscular(), 100, "GrupoMuscular");
         validarLongitud(datos.getTipo(), 50, "Tipo");
+        validarDescripcion(datos.getDescripcion());
         Ejercicios ejercicio = new Ejercicios(datos.getNombre(), datos.getGrupoMuscular(),
                 datos.getTipo(), descripcionSegura(datos.getDescripcion()));
         return convertirADTO(repository.save(ejercicio));
@@ -60,6 +64,7 @@ public class EjerciciosService implements IEjerciciosService {
         ejercicio.setNombre(datos.getNombre());
         ejercicio.setGrupoMuscular(datos.getGrupoMuscular());
         ejercicio.setTipo(datos.getTipo());
+        validarDescripcion(datos.getDescripcion());
         ejercicio.setDescripcion(descripcionSegura(datos.getDescripcion()));
         return convertirADTO(repository.save(ejercicio));
     }
@@ -115,6 +120,7 @@ public class EjerciciosService implements IEjerciciosService {
         validarLongitud(datos.getNombre(), 100, "Nombre");
         validarLongitud(datos.getGrupoMuscular(), 100, "GrupoMuscular");
         validarLongitud(datos.getTipo(), 50, "Tipo");
+        validarDescripcion(datos.getDescripcion());
     }
 
     @Override
@@ -128,6 +134,13 @@ public class EjerciciosService implements IEjerciciosService {
         return repository.buscar(tipo, query, org.springframework.data.domain.PageRequest.of(
                 pagina.getPageNumber(), pagina.getPageSize(),
                 org.springframework.data.domain.Sort.by("nombre", "idEjercicio"))).map(this::convertirADTO);
+    }
+
+    private void validarDescripcion(String valor) {
+        if (valor != null && CONTENIDO_PELIGROSO.matcher(valor).find()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Descripcion contiene contenido no permitido");
+        }
     }
 
     private String descripcionSegura(String valor) {
