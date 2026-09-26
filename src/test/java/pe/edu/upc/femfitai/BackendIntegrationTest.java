@@ -479,6 +479,33 @@ class BackendIntegrationTest {
         assertEquals(200, request("GET", "/ejercicios/buscar", null, jwt).statusCode());
     }
 
+    @Test void exerciseSearchFindsKeywordAloneAndFiltersMuscleGroupCaseInsensitively() throws Exception {
+        String marker = "US34-" + UUID.randomUUID();
+        String muscleGroup = "Pectoral-" + UUID.randomUUID();
+        ejercicios.saveAndFlush(new Ejercicios(marker + " Press", muscleGroup, "Fuerza", null));
+        ejercicios.saveAndFlush(new Ejercicios(marker + " Fly", muscleGroup.toUpperCase(Locale.ROOT), "Fuerza", null));
+        ejercicios.saveAndFlush(new Ejercicios(marker + " Row", "Espalda-" + UUID.randomUUID(), "Fuerza", null));
+        String jwt = token(usuario("USUARIA"));
+
+        var keywordResponse = request("GET", "/ejercicios/buscar?query=" + marker, null, jwt);
+        assertEquals(200, keywordResponse.statusCode(), keywordResponse.body());
+        JsonNode keywordResults = json.readTree(keywordResponse.body());
+        assertEquals(3, keywordResults.get("totalElements").asInt());
+        for (JsonNode exercise : keywordResults.get("content")) {
+            assertTrue(exercise.get("nombre").asText().startsWith(marker));
+        }
+
+        var groupResponse = request("GET", "/ejercicios/grupo-muscular/"
+                + muscleGroup.toUpperCase(Locale.ROOT), null, jwt);
+        assertEquals(200, groupResponse.statusCode(), groupResponse.body());
+        JsonNode groupResults = json.readTree(groupResponse.body());
+        assertEquals(2, groupResults.size());
+        for (JsonNode exercise : groupResults) {
+            assertTrue(exercise.get("grupoMuscular").asText().equalsIgnoreCase(muscleGroup));
+            assertTrue(exercise.get("nombre").asText().startsWith(marker));
+        }
+    }
+
         @Test void exerciseLimitsAndDescriptionPayloadsAreValidated() throws Exception {
         String jwt = token(usuario("ADMIN"));
         String validName = "N".repeat(100);
