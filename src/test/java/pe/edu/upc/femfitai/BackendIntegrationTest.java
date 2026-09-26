@@ -163,6 +163,40 @@ class BackendIntegrationTest {
         }
     }
 
+    @Test void registrationRejectsPasswordsMissingEachRequiredCriterion() throws Exception {
+        for (String password : List.of("Ab1cde", "abcdefgh1", "ABCDEFGH1", "Abcdefgh")) {
+            String correo = UUID.randomUUID() + "@example.test";
+            String body = "{\"nombres\":\"Ana\",\"apellidos\":\"Test\",\"correo\":\""
+                    + correo + "\",\"password\":\"" + password + "\"}";
+            var response = request("POST", "/usuarios", body, null);
+            assertEquals(400, response.statusCode(), response.body());
+            assertTrue(usuarios.findByCorreo(correo).isEmpty());
+        }
+    }
+
+    @Test void cycleEstimatedEndIsCalculatedAndRecalculatedAtTwentyEightCalendarDays() throws Exception {
+        var owner = usuario("USUARIA");
+        String jwt = token(owner);
+        LocalDate start = LocalDate.of(2025, 1, 31);
+        String postBody = "{\"idUsuario\":" + owner.getIdUsuario() + ",\"fechaInicio\":\"" + start
+                + "\",\"fechaFinEstimada\":\"2025-02-01\"}";
+        var created = request("POST", "/ciclos", postBody, jwt);
+        assertEquals(200, created.statusCode(), created.body());
+        long cycleId = json.readTree(created.body()).get("idCiclo").asLong();
+        LocalDate expected = start.plusDays(28);
+        assertEquals(expected.toString(), json.readTree(created.body()).get("fechaFinEstimada").asText());
+        assertEquals(expected, ciclos.findById(cycleId).orElseThrow().getFechaFinEstimada());
+
+        LocalDate updatedStart = LocalDate.of(2025, 2, 28);
+        String putBody = "{\"idUsuario\":" + owner.getIdUsuario() + ",\"fechaInicio\":\"" + updatedStart
+                + "\",\"fechaFinEstimada\":\"2025-03-01\"}";
+        var updated = request("PUT", "/ciclos/" + cycleId, putBody, jwt);
+        assertEquals(200, updated.statusCode(), updated.body());
+        LocalDate updatedExpected = updatedStart.plusDays(28);
+        assertEquals(updatedExpected.toString(), json.readTree(updated.body()).get("fechaFinEstimada").asText());
+        assertEquals(updatedExpected, ciclos.findById(cycleId).orElseThrow().getFechaFinEstimada());
+    }
+
     @Test void generationUsesTheProductionGeneratorAndHandlesOwnershipValidation() throws Exception {
         var u = usuario("USUARIA");
         String jwt = token(u);
@@ -355,6 +389,18 @@ class BackendIntegrationTest {
         assertEquals(409, request("POST", "/usuarios", body, null).statusCode());
         assertEquals(401, request("POST", "/login", "{\"correo\":\"" + correo
                 + "\",\"password\":\"incorrecta\"}", null).statusCode());
+    }
+
+    @Test void registrationAcceptsPasswordWithoutSpecialCharacterAndUsesBCrypt() throws Exception {
+        String correo = UUID.randomUUID() + "@example.test";
+        String password = "Abcdefg1";
+        String body = "{\"nombres\":\"Ana\",\"apellidos\":\"Test\",\"correo\":\"" + correo
+                + "\",\"password\":\"" + password + "\"}";
+        var response = request("POST", "/usuarios", body, null);
+        assertEquals(201, response.statusCode(), response.body());
+        Usuarios usuario = usuarios.findByCorreo(correo).orElseThrow();
+        assertNotEquals(password, usuario.getPasswordHash());
+        assertTrue(encoder.matches(password, usuario.getPasswordHash()));
     }
 
     @Test void catalogChangesRequireExistingAdministrativeRoles() throws Exception {

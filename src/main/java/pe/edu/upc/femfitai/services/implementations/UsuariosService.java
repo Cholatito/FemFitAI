@@ -103,6 +103,13 @@ public class UsuariosService implements IUsuariosService {
         obligatorio(apellidos, "Apellidos");
         obligatorio(correo, "Correo");
         obligatorio(passwordHash, "PasswordHash");
+        if (passwordHash.length() < 8
+                || passwordHash.chars().noneMatch(Character::isUpperCase)
+                || passwordHash.chars().noneMatch(Character::isLowerCase)
+                || passwordHash.chars().noneMatch(Character::isDigit)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número");
+        }
     }
 
     private void obligatorio(String valor, String campo) {

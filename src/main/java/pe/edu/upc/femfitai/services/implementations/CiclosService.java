@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.time.LocalDate;
 
 import pe.edu.upc.femfitai.dtos.CiclosDTO;
 import pe.edu.upc.femfitai.dtos.CiclosDTOUpdate;
@@ -46,14 +47,15 @@ public class CiclosService implements ICiclosService {
                     "idUsuario debe estar dentro del rango INTEGER de PostgreSQL");
         }
 
-        validarPropietarioYFechas(datos.getIdUsuario(), datos.getFechaInicio(), datos.getFechaFinEstimada(), datos.getFechaReal());
+        LocalDate fechaFinEstimada = datos.getFechaInicio().plusDays(28);
+        validarPropietarioYFechas(datos.getIdUsuario(), datos.getFechaInicio(), fechaFinEstimada, datos.getFechaReal());
         usuarios.bloquear(datos.getIdUsuario().intValue()).orElseThrow(() -> Validaciones.noEncontrado("Usuario"));
         Validaciones.conflicto(repository.existsByIdUsuarioAndFechaRealIsNull(datos.getIdUsuario()),
                 "La usuaria ya tiene un ciclo activo");
         Ciclos ciclo = new Ciclos();
         ciclo.setIdUsuario(datos.getIdUsuario());
         ciclo.setFechaInicio(datos.getFechaInicio());
-        ciclo.setFechaFinEstimada(datos.getFechaFinEstimada());
+        ciclo.setFechaFinEstimada(fechaFinEstimada);
         ciclo.setFechaReal(datos.getFechaReal());
         return convertirADTO(repository.save(ciclo));
     }
@@ -86,7 +88,8 @@ public class CiclosService implements ICiclosService {
                     "idUsuario debe estar dentro del rango INTEGER de PostgreSQL");
         }
 
-        validarPropietarioYFechas(datos.getIdUsuario(), datos.getFechaInicio(), datos.getFechaFinEstimada(), datos.getFechaReal());
+        LocalDate fechaFinEstimada = datos.getFechaInicio().plusDays(28);
+        validarPropietarioYFechas(datos.getIdUsuario(), datos.getFechaInicio(), fechaFinEstimada, datos.getFechaReal());
         usuarios.bloquear(datos.getIdUsuario().intValue()).orElseThrow(() -> Validaciones.noEncontrado("Usuario"));
         if (datos.getFechaReal() == null) {
             Validaciones.conflicto(repository.existsByIdUsuarioAndFechaRealIsNullAndIdCicloNot(datos.getIdUsuario(), id),
@@ -94,7 +97,7 @@ public class CiclosService implements ICiclosService {
         }
         ciclo.setIdUsuario(datos.getIdUsuario());
         ciclo.setFechaInicio(datos.getFechaInicio());
-        ciclo.setFechaFinEstimada(datos.getFechaFinEstimada());
+        ciclo.setFechaFinEstimada(fechaFinEstimada);
         ciclo.setFechaReal(datos.getFechaReal());
         return convertirADTO(repository.save(ciclo));
     }

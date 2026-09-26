@@ -23,6 +23,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = "spring.config.location=classpath:/application-test.properties")
@@ -71,5 +72,24 @@ class GeneracionRecomendacionesRealIntegrationTest {
         assertTrue(json.readTree(response.body()).get("contenido").asText().contains("Plan recomendado"));
         System.out.println("H2 diagnostic only: profile based generation elapsed ms="
                 + Duration.ofNanos(elapsedNanos).toMillis());
+    }
+
+    @Test void normalRecommendationGenerationCompletesWithinThreeSeconds() throws Exception {
+        // Warm up the HTTP and persistence path before timing the normal request.
+        var warmup = request("POST", "/recomendaciones/generar", "{}", jwt);
+        assertEquals(201, warmup.statusCode(), warmup.body());
+
+        long before = recomendaciones.count();
+        long started = System.nanoTime();
+        var response = request("POST", "/recomendaciones/generar", "{}", jwt);
+        long elapsedNanos = System.nanoTime() - started;
+
+        assertEquals(201, response.statusCode(), response.body());
+        assertTrue(Duration.ofNanos(elapsedNanos).compareTo(Duration.ofMillis(3000)) <= 0,
+                "La generación tardó " + Duration.ofNanos(elapsedNanos).toMillis() + " ms");
+        assertEquals(before + 1, recomendaciones.count());
+        assertFalse(json.readTree(response.body()).get("contenido").asText().isBlank());
+        System.out.println("US20 generation elapsed_ms=" + Duration.ofNanos(elapsedNanos).toMillis()
+                + " limit_ms=3000");
     }
 }
