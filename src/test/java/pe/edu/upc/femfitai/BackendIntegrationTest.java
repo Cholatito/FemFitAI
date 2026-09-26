@@ -236,6 +236,46 @@ class BackendIntegrationTest {
         }
     }
 
+    @Test void cycleUpdateRejectsInvalidDatesAndMissingIdsWithoutChangingStoredCycle() throws Exception {
+        var owner = usuario("USUARIA");
+        String jwt = token(owner);
+        var cycle = ciclos.saveAndFlush(new Ciclos(owner.getIdUsuario().longValue(), LocalDate.now().minusDays(2), null));
+        long initialCount = ciclos.count();
+        LocalDate initialStart = cycle.getFechaInicio();
+        String path = "/ciclos/" + cycle.getIdCiclo();
+
+        for (String fechaInicio : List.of("null", "\"fecha-invalida\"")) {
+            String body = "{\"idUsuario\":" + owner.getIdUsuario() + ",\"fechaInicio\":" + fechaInicio + "}";
+            var response = request("PUT", path, body, jwt);
+            assertEquals(400, response.statusCode(), response.body());
+            JsonNode error = json.readTree(response.body());
+            assertEquals(400, error.get("status").asInt());
+            assertEquals(path, error.get("path").asText());
+            if ("null".equals(fechaInicio)) {
+                assertTrue(error.get("message").asText().contains("fechaInicio"));
+            } else {
+                assertTrue(error.get("message").asText().contains("Peticion invalida"));
+            }
+            assertEquals(initialCount, ciclos.count());
+            var unchanged = ciclos.findById(cycle.getIdCiclo()).orElseThrow();
+            assertEquals(initialStart, unchanged.getFechaInicio());
+            assertNull(unchanged.getFechaFinEstimada());
+        }
+
+        String validBody = "{\"idUsuario\":" + owner.getIdUsuario()
+                + ",\"fechaInicio\":\"" + LocalDate.now().minusDays(1) + "\"}";
+        var missing = request("PUT", "/ciclos/2147483647", validBody, jwt);
+        assertEquals(404, missing.statusCode(), missing.body());
+        JsonNode error = json.readTree(missing.body());
+        assertEquals(404, error.get("status").asInt());
+        assertEquals("/ciclos/2147483647", error.get("path").asText());
+        assertTrue(error.get("message").asText().contains("No existe un ciclo"));
+        assertEquals(initialCount, ciclos.count());
+        var unchanged = ciclos.findById(cycle.getIdCiclo()).orElseThrow();
+        assertEquals(initialStart, unchanged.getFechaInicio());
+        assertNull(unchanged.getFechaFinEstimada());
+    }
+
     @Test void cyclesAndRoutinesCannotBeReadModifiedOrTransferredByAnotherAccount() throws Exception {
         var owner = usuario("USUARIA");
         var other = usuario("USUARIA");
