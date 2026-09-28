@@ -121,8 +121,7 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
         actual.verificar(rutina.getIdUsuario());
         if (datos.getIdUsuario() != null) actual.verificar(datos.getIdUsuario());
         Validaciones.texto(datos.getEstado(), 30, "Estado", false);
-        if (datos.getDuracionMin() == null || datos.getDuracionMin() < 0)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "DuracionMin no puede ser negativa");
+        Validaciones.positivo(datos.getDuracionMin(), "DuracionMin");
         if (datos.getNivelEnergia() == null || datos.getNivelEnergia() < 1 || datos.getNivelEnergia() > 5)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "NivelEnergia debe estar entre 1 y 5");
         if (datos.getEsfuerzoPercibido() == null || datos.getEsfuerzoPercibido() < 1 || datos.getEsfuerzoPercibido() > 10)
