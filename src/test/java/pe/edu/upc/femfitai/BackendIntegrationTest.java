@@ -41,6 +41,7 @@ class BackendIntegrationTest {
     @Autowired RecomendacionesIARepository recomendaciones;
     @Autowired DetalleSesionRepository detallesSesion;
     @Autowired DetalleSerieRepository series;
+    @Autowired ProgresoRepository progresos;
     @Autowired IDetalleDiarioCicloService diarioService;
     @Autowired IPerfilEntrenamientoService perfilService;
     @Autowired IProgresoService progresoService;
@@ -319,18 +320,25 @@ class BackendIntegrationTest {
         var detail = request("POST", "/detalle-sesion", detailBody, jwt);
         assertEquals(201, detail.statusCode(), detail.body());
         int detailId = json.readTree(detail.body()).get("idDetalle").asInt();
+        long detailCount = detallesSesion.count();
         assertEquals(404, request("POST", "/detalle-sesion",
             "{\"idSesion\":2147483647,\"idEjercicio\":" + e.getIdEjercicio() + "}", jwt).statusCode());
         assertEquals(404, request("POST", "/detalle-sesion",
             "{\"idSesion\":" + session.getIdSesion() + ",\"idEjercicio\":2147483647}", jwt).statusCode());
+        assertEquals(detailCount, detallesSesion.count());
+        assertEquals(e.getIdEjercicio(), detallesSesion.findById(detailId).orElseThrow().getIdEjercicio());
         String seriesBody = "{\"idDetalle\":" + detailId + ",\"numeroSerie\":1,\"repeticiones\":10,\"pesoKg\":20}";
         var createdSeries = request("POST", "/detalle-serie", seriesBody, jwt);
         assertEquals(201, createdSeries.statusCode(), createdSeries.body());
         int seriesId = json.readTree(createdSeries.body()).get("idSerie").asInt();
+        assertEquals(new BigDecimal("20.00"), series.findById(seriesId).orElseThrow().getPesoKg());
+        assertEquals(10, series.findById(seriesId).orElseThrow().getRepeticiones());
         for (String invalid : List.of("{\"repeticiones\":0,\"pesoKg\":20}",
             "{\"repeticiones\":-1,\"pesoKg\":20}",
             "{\"repeticiones\":10,\"pesoKg\":-1}")) {
             assertEquals(400, request("PUT", "/detalle-serie/" + seriesId, invalid, jwt).statusCode());
+            assertEquals(10, series.findById(seriesId).orElseThrow().getRepeticiones());
+            assertEquals(new BigDecimal("20.00"), series.findById(seriesId).orElseThrow().getPesoKg());
         }
         assertEquals(403, request("POST", "/detalle-sesion", detailBody, otherJwt).statusCode());
         assertEquals(403, request("POST", "/detalle-serie", seriesBody, otherJwt).statusCode());
@@ -339,16 +347,18 @@ class BackendIntegrationTest {
         assertEquals(403, request("PUT", "/detalle-sesion/" + detailId, "{\"observacion\":\"Ajena\"}", otherJwt).statusCode());
         assertEquals(400, request("PUT", "/detalle-sesion/" + detailId,
             "{\"observacion\":\"" + "O".repeat(256) + "\"}", jwt).statusCode());
+        assertNull(detallesSesion.findById(detailId).orElseThrow().getObservacion());
         assertEquals(403, request("PUT", "/detalle-serie/" + seriesId, "{\"repeticiones\":12,\"pesoKg\":25}", otherJwt).statusCode());
         assertEquals(403, request("DELETE", "/detalle-sesion/" + detailId, null, otherJwt).statusCode());
         assertEquals(403, request("DELETE", "/detalle-serie/" + seriesId, null, otherJwt).statusCode());
         assertEquals(404, request("DELETE", "/detalle-serie/2147483647", null, jwt).statusCode());
         assertEquals(200, request("PUT", "/detalle-sesion/" + detailId,
-                "{\"observacion\":\"Propia\",\"idSesion\":2147483647}", jwt).statusCode());
+                "{\"observacion\":\"" + "O".repeat(255) + "\",\"idSesion\":2147483647,\"idEjercicio\":2147483647}", jwt).statusCode());
         assertEquals(200, request("PUT", "/detalle-serie/" + seriesId,
                 "{\"repeticiones\":12,\"pesoKg\":25,\"idDetalle\":2147483647}", jwt).statusCode());
         assertEquals(session.getIdSesion(), detallesSesion.findById(detailId).orElseThrow().getIdSesion());
-        assertEquals("Propia", detallesSesion.findById(detailId).orElseThrow().getObservacion());
+        assertEquals("O".repeat(255), detallesSesion.findById(detailId).orElseThrow().getObservacion());
+        assertEquals(e.getIdEjercicio(), detallesSesion.findById(detailId).orElseThrow().getIdEjercicio());
         assertEquals(detailId, series.findById(seriesId).orElseThrow().getIdDetalle());
         assertEquals(12, series.findById(seriesId).orElseThrow().getRepeticiones());
         var zeroWeight = request("POST", "/detalle-serie", "{\"idDetalle\":" + detailId
@@ -357,11 +367,14 @@ class BackendIntegrationTest {
         int zeroWeightId = json.readTree(zeroWeight.body()).get("idSerie").asInt();
         assertEquals(0, series.findById(zeroWeightId).orElseThrow().getPesoKg().signum());
         assertEquals(409, request("DELETE", "/detalle-sesion/" + detailId, null, jwt).statusCode());
+        assertTrue(detallesSesion.existsById(detailId));
+        assertTrue(series.existsById(seriesId));
         assertEquals(204, request("DELETE", "/detalle-serie/" + seriesId, null, jwt).statusCode());
         assertEquals(204, request("DELETE", "/detalle-serie/" + zeroWeightId, null, jwt).statusCode());
         assertEquals(204, request("DELETE", "/detalle-sesion/" + detailId, null, jwt).statusCode());
         assertFalse(series.existsById(seriesId));
         assertFalse(detallesSesion.existsById(detailId));
+        assertEquals(404, request("DELETE", "/detalle-sesion/" + detailId, null, jwt).statusCode());
     }
 
     @Test void historyRoutineAndProfileEndpointsPersistAndRemainPrivateWithDiagnosticTimings() throws Exception {
@@ -406,6 +419,9 @@ class BackendIntegrationTest {
                 "{\"idDetalle\":" + detail.getIdDetalle() + ",\"numeroSerie\":1,\"repeticiones\":0,\"pesoKg\":1}",
                 "{\"idDetalle\":" + detail.getIdDetalle() + ",\"numeroSerie\":1,\"repeticiones\":1,\"pesoKg\":-1}",
                 "{\"idDetalle\":" + detail.getIdDetalle() + ",\"numeroSerie\":1,\"repeticiones\":null,\"pesoKg\":1}",
+                "{\"idDetalle\":" + detail.getIdDetalle() + ",\"numeroSerie\":1,\"repeticiones\":1,\"pesoKg\":null}",
+                "{\"idDetalle\":" + detail.getIdDetalle() + ",\"numeroSerie\":1,\"repeticiones\":1,\"pesoKg\":10000}",
+                "{\"idDetalle\":" + detail.getIdDetalle() + ",\"numeroSerie\":1,\"repeticiones\":1,\"pesoKg\":1.001}",
                 "{\"idDetalle\":2147483647,\"numeroSerie\":1,\"repeticiones\":1,\"pesoKg\":1}")) {
             var response = request("POST", "/detalle-serie", body, jwt);
             assertTrue(response.statusCode() == 400 || response.statusCode() == 404, response.body());
@@ -589,7 +605,170 @@ class BackendIntegrationTest {
             + ",\"nivelEnergia\":3,\"observaciones\":\"" + "O".repeat(256) + "\"}", jwt);
         assertEquals(400, tooLong.statusCode(), tooLong.body());
         assertEquals(400, json.readTree(tooLong.body()).get("status").asInt());
+        assertTrue(tooLong.body().contains("Observaciones"));
+        assertTrue(tooLong.body().contains("255"));
+        assertEquals(observations, diarios.buscarPorUsuarioYFecha(u.getIdUsuario().longValue(), LocalDate.now())
+            .get(0).getObservaciones());
         }
+
+    @Test void initialProfileRejectsInvalidFieldsWithoutPersistence() throws Exception {
+        var owner = usuario("USUARIA");
+        String jwt = token(owner);
+        var valid = new LinkedHashMap<String, Object>(Map.of(
+                "nivelEntrenamiento", "Inicial", "objetivoPrincipal", "Entrenar",
+                "diasDisponibles", 3, "tiempoDisponible", 30, "fechaNacimiento", "2000-01-01"));
+        assertEquals(401, request("POST", "/perfiles", json.writeValueAsString(valid), null).statusCode());
+        for (String field : valid.keySet()) {
+            List<Object> invalids = switch (field) {
+                case "diasDisponibles" -> Arrays.asList(null, 0, 8);
+                case "tiempoDisponible" -> Arrays.asList(null, 0, -1);
+                case "fechaNacimiento" -> Arrays.asList(null, LocalDate.now().plusDays(1).toString());
+                default -> Arrays.asList(null, "", "   ");
+            };
+            for (Object value : invalids) {
+                var body = new LinkedHashMap<>(valid);
+                body.put(field, value);
+                var response = request("POST", "/perfiles", json.writeValueAsString(body), jwt);
+                assertEquals(400, response.statusCode(), response.body());
+                assertTrue(response.body().toLowerCase().contains(field.toLowerCase()), response.body());
+                assertTrue(perfiles.findByIdUsuario(owner.getIdUsuario()).isEmpty());
+            }
+        }
+    }
+
+    @Test void profileUpdatesPersistOnlyOwnFieldsAndRejectInvalidChanges() throws Exception {
+        var owner = usuario("USUARIA");
+        var other = usuario("USUARIA");
+        var original = perfiles.saveAndFlush(new PerfilEntrenamiento(owner.getIdUsuario(), "Inicial",
+                "Entrenar", 3, 30, LocalDate.of(2000, 1, 1)));
+        var foreign = perfiles.saveAndFlush(new PerfilEntrenamiento(other.getIdUsuario(), "Inicial",
+                "Ajeno", 2, 20, LocalDate.of(1999, 1, 1)));
+        String jwt = token(owner);
+        var profile = new LinkedHashMap<String, Object>(Map.of("nivelEntrenamiento", "Avanzado",
+                "objetivoPrincipal", "Fuerza", "idUsuario", other.getIdUsuario(), "idPerfil", foreign.getIdPerfil()));
+        assertEquals(200, request("PUT", "/perfiles", json.writeValueAsString(profile), jwt).statusCode());
+        for (String field : List.of("nivelEntrenamiento", "objetivoPrincipal")) {
+            for (Object value : Arrays.asList(null, "", "   ", "X".repeat(field.equals("nivelEntrenamiento") ? 51 : 101))) {
+                var invalid = new LinkedHashMap<>(profile);
+                invalid.put(field, value);
+                assertEquals(400, request("PUT", "/perfiles", json.writeValueAsString(invalid), jwt).statusCode());
+            }
+        }
+        for (int days : List.of(1, 7)) {
+            assertEquals(200, request("PATCH", "/perfiles/disponibilidad",
+                    json.writeValueAsString(Map.of("diasDisponibles", days, "tiempoDisponible", 1,
+                            "idUsuario", other.getIdUsuario())), jwt).statusCode());
+            assertEquals(days, perfiles.findById(original.getIdPerfil()).orElseThrow().getDiasDisponibles());
+        }
+        for (String field : List.of("diasDisponibles", "tiempoDisponible")) {
+            for (Object value : field.equals("diasDisponibles") ? Arrays.asList(null, 0, 8) : Arrays.asList(null, 0, -1)) {
+                var invalid = new LinkedHashMap<String, Object>(Map.of("diasDisponibles", 3, "tiempoDisponible", 30));
+                invalid.put(field, value);
+                assertEquals(400, request("PATCH", "/perfiles/disponibilidad", json.writeValueAsString(invalid), jwt).statusCode());
+            }
+        }
+        var saved = perfiles.findById(original.getIdPerfil()).orElseThrow();
+        assertEquals("Avanzado", saved.getNivelEntrenamiento());
+        assertEquals("Fuerza", saved.getObjetivoPrincipal());
+        assertEquals(7, saved.getDiasDisponibles());
+        assertEquals(1, saved.getTiempoDisponible());
+        assertEquals(original.getFechaNacimiento(), saved.getFechaNacimiento());
+        var unchanged = perfiles.findById(foreign.getIdPerfil()).orElseThrow();
+        assertEquals("Ajeno", unchanged.getObjetivoPrincipal());
+        assertEquals(2, unchanged.getDiasDisponibles());
+        assertEquals(20, unchanged.getTiempoDisponible());
+    }
+
+    @Test void progressOptionalFieldsPersistAndInvalidInputsNeverPersist() throws Exception {
+        var owner = usuario("USUARIA");
+        String jwt = token(owner);
+        long before = progresos.count();
+        assertEquals(401, request("POST", "/progreso", "{\"pesoKg\":60}", null).statusCode());
+        for (String field : List.of("pesoKg", "medidaOpcional", "fecha", "notaPersonal")) {
+            List<Object> values = switch (field) {
+                case "pesoKg" -> Arrays.asList(null, 0, -1, 10000, new BigDecimal("1.001"));
+                case "medidaOpcional" -> List.of(0, -1, 10000, new BigDecimal("1.001"));
+                case "fecha" -> List.of(LocalDate.now().plusDays(1).toString(), "2026-02-30", "invalid");
+                default -> List.of("N".repeat(256));
+            };
+            for (Object value : values) {
+                var body = new LinkedHashMap<String, Object>(Map.of("pesoKg", 60));
+                body.put(field, value);
+                var response = request("POST", "/progreso", json.writeValueAsString(body), jwt);
+                assertEquals(400, response.statusCode(), response.body());
+                assertEquals(before, progresos.count());
+            }
+        }
+        for (boolean optional : List.of(false, true)) {
+            var body = new LinkedHashMap<String, Object>(Map.of("pesoKg", new BigDecimal("60.25")));
+            if (optional) {
+                body.put("medidaOpcional", new BigDecimal("80.50"));
+                body.put("notaPersonal", "N".repeat(255));
+                body.put("fecha", LocalDate.now().minusDays(1).toString());
+            }
+            var response = request("POST", "/progreso", json.writeValueAsString(body), jwt);
+            assertEquals(201, response.statusCode(), response.body());
+            var saved = progresos.findById(json.readTree(response.body()).get("idProgreso").asInt()).orElseThrow();
+            assertEquals(owner.getIdUsuario(), saved.getIdUsuario());
+            assertEquals(new BigDecimal("60.25"), saved.getPesoKg());
+            assertEquals(optional ? new BigDecimal("80.50") : null, saved.getMedidaOpcional());
+            assertEquals(optional ? "N".repeat(255) : null, saved.getNotaPersonal());
+            assertEquals(LocalDate.now().minusDays(optional ? 1 : 0), saved.getFecha());
+        }
+    }
+
+    @Test void pastDailyUpsertIsPrivateAndEnergyErrorsAreDescriptive() throws Exception {
+        var owner = usuario("USUARIA");
+        var other = usuario("USUARIA");
+        var ownCycle = ciclo(owner);
+        var otherCycle = ciclo(other);
+        LocalDate date = LocalDate.now().minusDays(1);
+        String jwt = token(owner);
+        var body = new LinkedHashMap<String, Object>(Map.of("idCiclo", ownCycle.getIdCiclo(),
+                "fecha", date.toString(), "nivelEnergia", 1));
+        var created = request("PUT", "/detalle-diario", json.writeValueAsString(body), jwt);
+        assertEquals(200, created.statusCode(), created.body());
+        int id = json.readTree(created.body()).get("idDetalleDiarioCiclo").asInt();
+        body.put("nivelEnergia", 5);
+        assertEquals(200, request("PUT", "/detalle-diario", json.writeValueAsString(body), jwt).statusCode());
+        for (Object value : Arrays.asList(null, 0, 6, new BigDecimal("1.5"))) {
+            body.put("nivelEnergia", value);
+            var invalid = request("PUT", "/detalle-diario", json.writeValueAsString(body), jwt);
+            assertEquals(400, invalid.statusCode(), invalid.body());
+            if (!(value instanceof BigDecimal)) assertTrue(invalid.body().contains("NivelEnergia"));
+            assertEquals(5, diarios.findById(id).orElseThrow().getNivelEnergia());
+        }
+        body.put("nivelEnergia", 1);
+        body.put("idCiclo", otherCycle.getIdCiclo());
+        assertEquals(200, request("PUT", "/detalle-diario", json.writeValueAsString(body), token(other)).statusCode());
+        assertEquals(403, request("PUT", "/detalle-diario", json.writeValueAsString(body), jwt).statusCode());
+        var saved = diarios.buscarPorUsuarioYFecha(owner.getIdUsuario().longValue(), date);
+        assertEquals(1, saved.size());
+        assertEquals(id, saved.get(0).getIdDetalleDiarioCiclo());
+        assertEquals(5, saved.get(0).getNivelEnergia());
+        assertEquals(1, diarios.buscarPorUsuarioYFecha(other.getIdUsuario().longValue(), date).size());
+    }
+
+    @Test void exerciseResponsesPreserveLongDescriptionAndAllCatalogFields() throws Exception {
+        String jwt = token(usuario("ADMIN"));
+        String name = "Long-" + UUID.randomUUID();
+        String description = "Movimiento controlado. ".repeat(500);
+        var response = request("POST", "/ejercicios", json.writeValueAsString(Map.of(
+                "nombre", name, "grupoMuscular", "Piernas", "tipo", "Fuerza", "descripcion", description)), jwt);
+        assertEquals(201, response.statusCode(), response.body());
+        int id = json.readTree(response.body()).get("idEjercicio").asInt();
+        assertEquals(description, ejercicios.findById(id).orElseThrow().getDescripcion());
+        for (String path : List.of("/ejercicios/" + id, "/ejercicios/buscar?query=" + name)) {
+            var fetched = request("GET", path, null, jwt);
+            assertEquals(200, fetched.statusCode(), fetched.body());
+            var item = json.readTree(fetched.body());
+            if (path.contains("buscar")) item = item.get("content").get(0);
+            assertEquals(name, item.get("nombre").asText());
+            assertEquals("Piernas", item.get("grupoMuscular").asText());
+            assertEquals("Fuerza", item.get("tipo").asText());
+            assertEquals(description, item.get("descripcion").asText());
+        }
+    }
 
     private void runConcurrently(Usuarios u, Runnable first, Runnable second) throws Exception {
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -644,26 +823,43 @@ class BackendIntegrationTest {
         var otherRoutine = rutina(other);
         String jwt = token(owner);
         String body = "{\"idRutina\":" + ownRoutine.getIdRutina() + ",\"duracionMin\":30,\"nivelEnergia\":3,\"esfuerzoPercibido\":5,\"estado\":\"Completada\"}";
-        var created = request("POST", "/sesiones", body, jwt);
+        var created = request("POST", "/sesiones", body.replace("}", ",\"fecha\":\"1999-01-01T00:00:00\"}"), jwt);
         assertEquals(201, created.statusCode(), created.body());
         int id = json.readTree(created.body()).get("idSesion").asInt();
         var original = sesiones.findById(id).orElseThrow();
         assertEquals(owner.getIdUsuario(), original.getIdUsuario());
         assertEquals(LocalDate.now(), original.getFecha().toLocalDate());
+        assertEquals("Completada", original.getEstado());
+        long sessionCount = sesiones.count();
         String path = "/sesiones/" + id;
         for (String invalid : List.of(body.replace("\"duracionMin\":30", "\"duracionMin\":-1"),
+                body.replace("\"duracionMin\":30", "\"duracionMin\":0"),
                 body.replace("\"duracionMin\":30", "\"duracionMin\":null"),
+                body.replace("\"nivelEnergia\":3", "\"nivelEnergia\":0"),
+                body.replace("\"nivelEnergia\":3", "\"nivelEnergia\":6"),
+                body.replace("\"nivelEnergia\":3", "\"nivelEnergia\":null"),
+                body.replace("\"estado\":\"Completada\"", "\"estado\":\"" + "E".repeat(31) + "\""),
+                body.replace("\"idRutina\":" + ownRoutine.getIdRutina(), "\"idRutina\":null"),
+                body.replace("\"idRutina\":" + ownRoutine.getIdRutina(), "\"idRutina\":2147483647"),
                 body.replace("\"esfuerzoPercibido\":5", "\"esfuerzoPercibido\":0"),
                 body.replace("\"esfuerzoPercibido\":5", "\"esfuerzoPercibido\":null"),
                 body.replace("\"esfuerzoPercibido\":5", "\"esfuerzoPercibido\":11"))) {
             assertEquals(400, request("POST", "/sesiones", invalid, jwt).statusCode());
             assertEquals(400, request("PUT", path, invalid, jwt).statusCode());
+            assertEquals(sessionCount, sesiones.count());
+            var unchanged = sesiones.findById(id).orElseThrow();
+            assertEquals(30, unchanged.getDuracionMin());
+            assertEquals(3, unchanged.getNivelEnergia());
+            assertEquals(5, unchanged.getEsfuerzoPercibido());
+            assertEquals("Completada", unchanged.getEstado());
         }
         String stolen = body.replace("\"idRutina\":" + ownRoutine.getIdRutina(), "\"idRutina\":" + otherRoutine.getIdRutina());
         assertEquals(403, request("POST", "/sesiones", stolen, jwt).statusCode());
         assertEquals(403, request("PUT", path, stolen, jwt).statusCode());
         String transfer = body.replace("}", ",\"idUsuario\":" + other.getIdUsuario() + "}");
+        assertEquals(403, request("POST", "/sesiones", transfer, jwt).statusCode());
         assertEquals(403, request("PUT", path, transfer, jwt).statusCode());
+        assertEquals(sessionCount, sesiones.count());
         assertEquals(200, request("PUT", path, body.replace("}", ",\"fecha\":\"1999-01-01T00:00:00\"}"), jwt).statusCode());
         assertEquals(original.getFecha(), sesiones.findById(id).orElseThrow().getFecha());
         String otherJwt = token(other);
