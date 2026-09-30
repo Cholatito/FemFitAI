@@ -11,11 +11,13 @@ public class RutinaEjercicios {
     @Column(name = "\"IdRutinaEjercicio\"", nullable = false)
     private Integer idRutinaEjercicio;
 
-    @Column(name = "\"IdRutina\"", nullable = false)
-    private Integer idRutina;
+    @ManyToOne
+    @JoinColumn(name = "\"IdRutina\"", nullable = false)
+    private Rutinas rutina;
 
-    @Column(name = "\"IdEjercicio\"", nullable = false)
-    private Integer idEjercicio;
+    @ManyToOne
+    @JoinColumn(name = "\"IdEjercicio\"", nullable = false)
+    private Ejercicios ejercicio;
 
     @Column(name = "\"Series\"", nullable = true)
     private Integer series;
@@ -28,9 +30,9 @@ public class RutinaEjercicios {
 
     public RutinaEjercicios() {}
 
-    public RutinaEjercicios(Integer idRutina, Integer idEjercicio, Integer series, Integer repeticiones, Integer descansoSeg) {
-        this.idRutina = idRutina;
-        this.idEjercicio = idEjercicio;
+    public RutinaEjercicios(Rutinas rutina, Ejercicios ejercicio, Integer series, Integer repeticiones, Integer descansoSeg) {
+        this.rutina = rutina;
+        this.ejercicio = ejercicio;
         this.series = series;
         this.repeticiones = repeticiones;
         this.descansoSeg = descansoSeg;
@@ -44,20 +46,20 @@ public class RutinaEjercicios {
         this.idRutinaEjercicio = idRutinaEjercicio;
     }
 
-    public Integer getIdRutina() {
-        return idRutina;
+    public Rutinas getRutina() {
+        return rutina;
     }
 
-    public void setIdRutina(Integer idRutina) {
-        this.idRutina = idRutina;
+    public void setRutina(Rutinas rutina) {
+        this.rutina = rutina;
     }
 
-    public Integer getIdEjercicio() {
-        return idEjercicio;
+    public Ejercicios getEjercicio() {
+        return ejercicio;
     }
 
-    public void setIdEjercicio(Integer idEjercicio) {
-        this.idEjercicio = idEjercicio;
+    public void setEjercicio(Ejercicios ejercicio) {
+        this.ejercicio = ejercicio;
     }
 
     public Integer getSeries() {

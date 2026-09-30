@@ -9,8 +9,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTO;
+import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoRequestDTO;
 import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTODetalle;
 import pe.edu.upc.femfitai.entities.SesionesEntrenamiento;
+import pe.edu.upc.femfitai.entities.Rutinas;
+import pe.edu.upc.femfitai.entities.Usuarios;
 import pe.edu.upc.femfitai.repositories.SesionesEntrenamientoRepository;
 import pe.edu.upc.femfitai.repositories.RutinasRepository;
 import pe.edu.upc.femfitai.repositories.UsuariosRepository;
@@ -31,13 +34,14 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
 
     @Override
     @Transactional
-    public SesionesEntrenamientoDTO registrar(SesionesEntrenamientoDTO datos) {
+    public SesionesEntrenamientoDTO registrar(SesionesEntrenamientoRequestDTO datos) {
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
-        validar(datos.getIdRutina(), datos.getIdUsuario());
+        Rutinas rutina = obtenerRutina(datos.getIdRutina());
+        Usuarios usuario = obtenerUsuario(datos.getIdUsuario());
         SesionesEntrenamiento sesion = new SesionesEntrenamiento(
-                datos.getIdRutina(), datos.getIdUsuario(),
+                rutina, usuario,
                 datos.getFecha() == null ? LocalDateTime.now() : datos.getFecha(),
                 datos.getDuracionMin(), datos.getNivelEnergia(),
                 datos.getEsfuerzoPercibido(), datos.getEstado());
@@ -58,14 +62,13 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
 
     @Override
     @Transactional
-    public SesionesEntrenamientoDTO actualizar(Integer id, SesionesEntrenamientoDTO datos) {
+    public SesionesEntrenamientoDTO actualizar(Integer id, SesionesEntrenamientoRequestDTO datos) {
         SesionesEntrenamiento sesion = obtenerSesion(id);
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
-        validar(datos.getIdRutina(), datos.getIdUsuario());
-        sesion.setIdRutina(datos.getIdRutina());
-        sesion.setIdUsuario(datos.getIdUsuario());
+        sesion.setRutina(obtenerRutina(datos.getIdRutina()));
+        sesion.setUsuario(obtenerUsuario(datos.getIdUsuario()));
         sesion.setFecha(datos.getFecha());
         sesion.setDuracionMin(datos.getDuracionMin());
         sesion.setNivelEnergia(datos.getNivelEnergia());
@@ -83,7 +86,7 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
     @Override
     @Transactional(readOnly = true)
     public List<SesionesEntrenamientoDTO> listarPorUsuario(Integer idUsuario) {
-        return repository.findByIdUsuario(idUsuario).stream().map(this::convertirADTO).toList();
+        return repository.findByUsuario_IdUsuario(idUsuario).stream().map(this::convertirADTO).toList();
     }
 
     @Override
@@ -107,27 +110,35 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
                 "No existe una sesion con ID " + id);
     }
 
-    private void validar(Integer idRutina, Integer idUsuario) {
+    private Rutinas obtenerRutina(Integer idRutina) {
         if (idRutina == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "IdRutina es obligatorio");
         }
+        return rutinasRepository.findById(idRutina)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "No existe una rutina con ID " + idRutina));
+    }
+
+    private Usuarios obtenerUsuario(Integer idUsuario) {
         if (idUsuario == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "IdUsuario es obligatorio");
         }
-        if (!rutinasRepository.existsById(idRutina)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "No existe una rutina con ID " + idRutina);
-        }
-        if (!usuariosRepository.existsById(idUsuario)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "No existe un usuario con ID " + idUsuario);
-        }
+        return usuariosRepository.findById(idUsuario)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "No existe un usuario con ID " + idUsuario));
     }
 
     private SesionesEntrenamientoDTO convertirADTO(SesionesEntrenamiento sesion) {
         return new SesionesEntrenamientoDTO(
-                sesion.getIdSesion(), sesion.getIdRutina(), sesion.getIdUsuario(),
+                sesion.getIdSesion(), sesion.getRutina().getIdRutina(), sesion.getUsuario().getIdUsuario(),
                 sesion.getFecha(), sesion.getDuracionMin(), sesion.getNivelEnergia(),
                 sesion.getEsfuerzoPercibido(), sesion.getEstado());
     }
 }
+
+
+
+
+
+
+

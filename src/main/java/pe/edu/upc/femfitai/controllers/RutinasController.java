@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pe.edu.upc.femfitai.dtos.RutinasDTO;
+import pe.edu.upc.femfitai.dtos.RutinasRequestDTO;
 import pe.edu.upc.femfitai.dtos.RutinasUsuarioDTO;
 import pe.edu.upc.femfitai.services.interfaces.IRutinasService;
 
@@ -18,7 +19,7 @@ public class RutinasController {
     }
 
     @PostMapping
-    public ResponseEntity<RutinasDTO> registrar(@RequestBody RutinasDTO datos) {
+    public ResponseEntity<RutinasDTO> registrar(@RequestBody RutinasRequestDTO datos) {
         RutinasDTO rutina = service.registrar(datos);
         return ResponseEntity.created(URI.create("/rutinas/" + rutina.getIdRutina())).body(rutina);
     }
@@ -35,7 +36,7 @@ public class RutinasController {
 
     @PutMapping("/{id}")
     public RutinasDTO actualizar(@PathVariable("id") Integer id,
-                                    @RequestBody RutinasDTO datos) {
+                                    @RequestBody RutinasRequestDTO datos) {
         return service.actualizar(id, datos);
     }
 

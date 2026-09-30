@@ -11,34 +11,33 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 
 import pe.edu.upc.femfitai.dtos.CiclosDTO;
-import pe.edu.upc.femfitai.dtos.CiclosDTOUpdate;
+import pe.edu.upc.femfitai.dtos.CiclosRequestDTO;
 import pe.edu.upc.femfitai.entities.Ciclos;
+import pe.edu.upc.femfitai.entities.Usuarios;
 import pe.edu.upc.femfitai.repositories.CiclosRepository;
+import pe.edu.upc.femfitai.repositories.UsuariosRepository;
 
 @Service
 public class CiclosService implements ICiclosService {
 
     private final CiclosRepository repository;
+    private final UsuariosRepository usuariosRepository;
 
-    public CiclosService(CiclosRepository repository) {
+    public CiclosService(CiclosRepository repository, UsuariosRepository usuariosRepository) {
         this.repository = repository;
+        this.usuariosRepository = usuariosRepository;
     }
 
     @Override
     @Transactional
-    public CiclosDTO registrar(CiclosDTO datos) {
+    public CiclosDTO registrar(CiclosRequestDTO datos) {
         if (datos == null || datos.getIdUsuario() == null || datos.getFechaInicio() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "idUsuario y fechaInicio son obligatorios");
         }
 
-        if (!esInteger(datos.getIdUsuario())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "idUsuario debe estar dentro del rango INTEGER de PostgreSQL");
-        }
-
         Ciclos ciclo = new Ciclos();
-        ciclo.setIdUsuario(datos.getIdUsuario());
+        ciclo.setUsuario(obtenerUsuario(datos.getIdUsuario()));
         ciclo.setFechaInicio(datos.getFechaInicio());
         ciclo.setFechaFinEstimada(datos.getFechaFinEstimada());
         ciclo.setFechaReal(datos.getFechaReal());
@@ -61,19 +60,14 @@ public class CiclosService implements ICiclosService {
 
     @Override
     @Transactional
-    public CiclosDTO actualizar(Long id, CiclosDTOUpdate datos) {
+    public CiclosDTO actualizar(Long id, CiclosRequestDTO datos) {
         Ciclos ciclo = obtenerCiclo(id);
         if (datos == null || datos.getIdUsuario() == null || datos.getFechaInicio() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "idUsuario y fechaInicio son obligatorios");
         }
 
-        if (!esInteger(datos.getIdUsuario())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "idUsuario debe estar dentro del rango INTEGER de PostgreSQL");
-        }
-
-        ciclo.setIdUsuario(datos.getIdUsuario());
+        ciclo.setUsuario(obtenerUsuario(datos.getIdUsuario()));
         ciclo.setFechaInicio(datos.getFechaInicio());
         ciclo.setFechaFinEstimada(datos.getFechaFinEstimada());
         ciclo.setFechaReal(datos.getFechaReal());
@@ -97,18 +91,22 @@ public class CiclosService implements ICiclosService {
     }
 
     private boolean esInteger(Long valor) {
-        return valor >= Integer.MIN_VALUE && valor <= Integer.MAX_VALUE;
+        return valor != null && valor >= Integer.MIN_VALUE && valor <= Integer.MAX_VALUE;
+    }
+
+    private Usuarios obtenerUsuario(Integer idUsuario) {
+        return usuariosRepository.findById(idUsuario)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "No existe un usuario con ID " + idUsuario));
     }
 
     private CiclosDTO convertirADTO(Ciclos ciclo) {
-        return new CiclosDTO(ciclo.getIdCiclo(), ciclo.getIdUsuario(),
+        return new CiclosDTO(ciclo.getIdCiclo(), ciclo.getUsuario().getIdUsuario(),
                 ciclo.getFechaInicio(), ciclo.getFechaFinEstimada(), ciclo.getFechaReal());
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<CiclosDTO> listarPorUsuario(Long idUsuario) {
-        return repository.findByIdUsuario(idUsuario).stream()
+    public List<CiclosDTO> listarPorUsuario(Integer idUsuario) {
+        return repository.findByUsuario_IdUsuario(idUsuario).stream()
                 .map(this::convertirADTO)
                 .toList();
     }

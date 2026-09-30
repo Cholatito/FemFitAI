@@ -13,11 +13,13 @@ public class RecomendacionesIA {
     @Column(name = "\"IdRecomendacion\"", nullable = false)
     private Integer idRecomendacion;
 
-    @Column(name = "\"IdUsuario\"", nullable = false)
-    private Integer idUsuario;
+    @ManyToOne
+    @JoinColumn(name = "\"IdUsuario\"", nullable = false)
+    private Usuarios usuario;
 
-    @Column(name = "\"IdRutina\"", nullable = true)
-    private Integer idRutina;
+    @ManyToOne
+    @JoinColumn(name = "\"IdRutina\"")
+    private Rutinas rutina;
 
     @Column(name = "\"Fecha\"", nullable = true)
     @ColumnDefault("CURRENT_TIMESTAMP")
@@ -38,9 +40,9 @@ public class RecomendacionesIA {
 
     public RecomendacionesIA() {}
 
-    public RecomendacionesIA(Integer idUsuario, Integer idRutina, LocalDateTime fecha, String tipo, String contenido, String motivo, Boolean aceptada) {
-        this.idUsuario = idUsuario;
-        this.idRutina = idRutina;
+    public RecomendacionesIA(Usuarios usuario, Rutinas rutina, LocalDateTime fecha, String tipo, String contenido, String motivo, Boolean aceptada) {
+        this.usuario = usuario;
+        this.rutina = rutina;
         this.fecha = fecha;
         this.tipo = tipo;
         this.contenido = contenido;
@@ -56,20 +58,20 @@ public class RecomendacionesIA {
         this.idRecomendacion = idRecomendacion;
     }
 
-    public Integer getIdUsuario() {
-        return idUsuario;
+    public Usuarios getUsuario() {
+        return usuario;
     }
 
-    public void setIdUsuario(Integer idUsuario) {
-        this.idUsuario = idUsuario;
+    public void setUsuario(Usuarios usuario) {
+        this.usuario = usuario;
     }
 
-    public Integer getIdRutina() {
-        return idRutina;
+    public Rutinas getRutina() {
+        return rutina;
     }
 
-    public void setIdRutina(Integer idRutina) {
-        this.idRutina = idRutina;
+    public void setRutina(Rutinas rutina) {
+        this.rutina = rutina;
     }
 
     public LocalDateTime getFecha() {

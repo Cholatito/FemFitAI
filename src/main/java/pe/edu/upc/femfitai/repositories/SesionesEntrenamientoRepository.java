@@ -9,16 +9,16 @@ import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTODetalle;
 import pe.edu.upc.femfitai.entities.SesionesEntrenamiento;
 
 public interface SesionesEntrenamientoRepository extends JpaRepository<SesionesEntrenamiento, Integer> {
-    List<SesionesEntrenamiento> findByIdUsuario(Integer idUsuario);
+    List<SesionesEntrenamiento> findByUsuario_IdUsuario(Integer idUsuario);
 
     @Query("""
             select new pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTODetalle(
-                s.idSesion, s.idUsuario, u.nombres, u.apellidos,
-                s.idRutina, r.nombre, s.fecha, s.duracionMin,
+                s.idSesion, s.usuario.idUsuario, u.nombres, u.apellidos,
+                s.rutina.idRutina, r.nombre, s.fecha, s.duracionMin,
                 s.nivelEnergia, s.esfuerzoPercibido, s.estado)
             from SesionesEntrenamiento s
-            join Usuarios u on s.idUsuario = u.idUsuario
-            join Rutinas r on s.idRutina = r.idRutina
+            join Usuarios u on s.usuario.idUsuario = u.idUsuario
+            join Rutinas r on s.rutina.idRutina = r.idRutina
             where s.idSesion = :id
             """)
     Optional<SesionesEntrenamientoDTODetalle> buscarDetallePorId(@Param("id") Integer id);

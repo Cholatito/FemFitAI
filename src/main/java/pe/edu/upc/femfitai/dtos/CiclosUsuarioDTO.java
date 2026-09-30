@@ -21,6 +21,11 @@ public class CiclosUsuarioDTO {
         this.fechaFinReal = fechaFinReal;
     }
 
+    public CiclosUsuarioDTO(Long idCiclo, Integer idUsuario, String nombres, String apellidos, LocalDate fechaInicio, LocalDate fechaFinEstimada, LocalDate fechaFinReal) {
+        this(idCiclo, idUsuario == null ? null : idUsuario.longValue(), nombres, apellidos,
+                fechaInicio, fechaFinEstimada, fechaFinReal);
+    }
+
     public Long getIdCiclo() {
         return idCiclo;
     }

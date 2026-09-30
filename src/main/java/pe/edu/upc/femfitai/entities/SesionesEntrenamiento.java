@@ -13,11 +13,13 @@ public class SesionesEntrenamiento {
     @Column(name = "\"IdSesion\"", nullable = false)
     private Integer idSesion;
 
-    @Column(name = "\"IdRutina\"", nullable = false)
-    private Integer idRutina;
+    @ManyToOne
+    @JoinColumn(name = "\"IdRutina\"", nullable = false)
+    private Rutinas rutina;
 
-    @Column(name = "\"IdUsuario\"", nullable = false)
-    private Integer idUsuario;
+    @ManyToOne
+    @JoinColumn(name = "\"IdUsuario\"", nullable = false)
+    private Usuarios usuario;
 
     @Column(name = "\"Fecha\"", nullable = true)
     @ColumnDefault("CURRENT_TIMESTAMP")
@@ -37,9 +39,9 @@ public class SesionesEntrenamiento {
 
     public SesionesEntrenamiento() {}
 
-    public SesionesEntrenamiento(Integer idRutina, Integer idUsuario, LocalDateTime fecha, Integer duracionMin, Integer nivelEnergia, Integer esfuerzoPercibido, String estado) {
-        this.idRutina = idRutina;
-        this.idUsuario = idUsuario;
+    public SesionesEntrenamiento(Rutinas rutina, Usuarios usuario, LocalDateTime fecha, Integer duracionMin, Integer nivelEnergia, Integer esfuerzoPercibido, String estado) {
+        this.rutina = rutina;
+        this.usuario = usuario;
         this.fecha = fecha;
         this.duracionMin = duracionMin;
         this.nivelEnergia = nivelEnergia;
@@ -55,20 +57,20 @@ public class SesionesEntrenamiento {
         this.idSesion = idSesion;
     }
 
-    public Integer getIdRutina() {
-        return idRutina;
+    public Rutinas getRutina() {
+        return rutina;
     }
 
-    public void setIdRutina(Integer idRutina) {
-        this.idRutina = idRutina;
+    public void setRutina(Rutinas rutina) {
+        this.rutina = rutina;
     }
 
-    public Integer getIdUsuario() {
-        return idUsuario;
+    public Usuarios getUsuario() {
+        return usuario;
     }
 
-    public void setIdUsuario(Integer idUsuario) {
-        this.idUsuario = idUsuario;
+    public void setUsuario(Usuarios usuario) {
+        this.usuario = usuario;
     }
 
     public LocalDateTime getFecha() {

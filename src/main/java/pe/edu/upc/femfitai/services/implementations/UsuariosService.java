@@ -7,6 +7,8 @@ import pe.edu.upc.femfitai.services.interfaces.IUsuariosService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -15,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 import pe.edu.upc.femfitai.dtos.UsuariosDTO;
 import pe.edu.upc.femfitai.entities.Usuarios;
 import pe.edu.upc.femfitai.repositories.IUsersRepository;
+
 
 @Service
 public class UsuariosService implements IUsuariosService {

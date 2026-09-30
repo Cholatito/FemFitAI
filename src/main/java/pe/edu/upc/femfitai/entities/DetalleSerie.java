@@ -12,8 +12,9 @@ public class DetalleSerie {
     @Column(name = "\"IdSerie\"", nullable = false)
     private Integer idSerie;
 
-    @Column(name = "\"IdDetalle\"", nullable = false)
-    private Integer idDetalle;
+    @ManyToOne
+    @JoinColumn(name = "\"IdDetalle\"", nullable = false)
+    private DetalleSesion detalle;
 
     @Column(name = "\"NumeroSerie\"", nullable = false)
     private Integer numeroSerie;
@@ -26,8 +27,8 @@ public class DetalleSerie {
 
     public DetalleSerie() {}
 
-    public DetalleSerie(Integer idDetalle, Integer numeroSerie, Integer repeticiones, BigDecimal pesoKg) {
-        this.idDetalle = idDetalle;
+    public DetalleSerie(DetalleSesion detalle, Integer numeroSerie, Integer repeticiones, BigDecimal pesoKg) {
+        this.detalle = detalle;
         this.numeroSerie = numeroSerie;
         this.repeticiones = repeticiones;
         this.pesoKg = pesoKg;
@@ -41,12 +42,12 @@ public class DetalleSerie {
         this.idSerie = idSerie;
     }
 
-    public Integer getIdDetalle() {
-        return idDetalle;
+    public DetalleSesion getDetalle() {
+        return detalle;
     }
 
-    public void setIdDetalle(Integer idDetalle) {
-        this.idDetalle = idDetalle;
+    public void setDetalle(DetalleSesion detalle) {
+        this.detalle = detalle;
     }
 
     public Integer getNumeroSerie() {
