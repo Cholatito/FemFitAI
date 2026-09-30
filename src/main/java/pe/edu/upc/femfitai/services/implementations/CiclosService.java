@@ -105,6 +105,8 @@ public class CiclosService implements ICiclosService {
                 ciclo.getFechaInicio(), ciclo.getFechaFinEstimada(), ciclo.getFechaReal());
     }
 
+    @Override
+    @Transactional(readOnly = true)
     public List<CiclosDTO> listarPorUsuario(Integer idUsuario) {
         return repository.findByUsuario_IdUsuario(idUsuario).stream()
                 .map(this::convertirADTO)

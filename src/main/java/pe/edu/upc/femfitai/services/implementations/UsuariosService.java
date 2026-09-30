@@ -10,17 +10,21 @@ import java.util.Locale;
 import java.util.Set;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.upc.femfitai.dtos.UsuariosDTO;
 import pe.edu.upc.femfitai.entities.Usuarios;
-import pe.edu.upc.femfitai.repositories.IUsersRepository;
 
 
 @Service
 public class UsuariosService implements IUsuariosService {
+    private static final Set<String> ROLES_PERMITIDOS = Set.of("PROGRAMADOR", "TESTER");
+    private static final String ROL_POR_DEFECTO = "TESTER";
+
     private final UsuariosRepository repository;
     private final PasswordEncoder passwordEncoder;
 
@@ -39,9 +43,10 @@ public class UsuariosService implements IUsuariosService {
         if (repository.findByCorreo(datos.getCorreo()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "El correo ya está registrado");
         }
+        String rol = resolverRolAlRegistrar(datos.getRol());
         Usuarios usuario = new Usuarios(datos.getNombres(), datos.getApellidos(),
                 datos.getCorreo(), passwordEncoder.encode(datos.getPasswordHash()),
-                "USUARIA",
+                rol,
                 datos.getEstado() == null ? true : datos.getEstado(), LocalDateTime.now());
         return convertirADTO(repository.save(usuario));
     }
@@ -110,11 +115,30 @@ public class UsuariosService implements IUsuariosService {
 
     private String normalizarRol(String rol) {
         String rolNormalizado = rol.trim().toUpperCase(Locale.ROOT);
-        if (!rolNormalizado.equals("USUARIA") && !rolNormalizado.equals("ADMIN")) {
+        if (!ROLES_PERMITIDOS.contains(rolNormalizado)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Rol debe ser USUARIA o ADMIN");
+                    "Rol debe ser PROGRAMADOR o TESTER");
         }
         return rolNormalizado;
+    }
+
+    private String resolverRolAlRegistrar(String rolSolicitado) {
+        if (rolSolicitado == null || rolSolicitado.isBlank()) {
+            return ROL_POR_DEFECTO;
+        }
+        String rol = normalizarRol(rolSolicitado);
+        if (rol.equals("PROGRAMADOR") && !quienLlamaEsProgramador()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Solo un PROGRAMADOR puede crear otro PROGRAMADOR");
+        }
+        return rol;
+    }
+
+    private boolean quienLlamaEsProgramador() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.isAuthenticated()
+                && auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_PROGRAMADOR"));
     }
 
     private UsuariosDTO convertirADTO(Usuarios usuario) {
