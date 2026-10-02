@@ -9,14 +9,14 @@ import pe.edu.upc.femfitai.dtos.RutinasUsuarioDTO;
 import pe.edu.upc.femfitai.entities.Rutinas;
 
 public interface RutinasRepository extends JpaRepository<Rutinas, Integer> {
-    List<Rutinas> findByIdUsuario(Integer idUsuario);
+    List<Rutinas> findByUsuario_IdUsuario(Integer idUsuario);
 
     @Query("""
             select new pe.edu.upc.femfitai.dtos.RutinasUsuarioDTO(
-                r.idRutina, r.idUsuario, u.nombres, u.apellidos,
+                r.idRutina, r.usuario.idUsuario, u.nombres, u.apellidos,
                 r.nombre, r.objetivo, r.nivel, r.fechaCreacion, r.estado)
             from Rutinas r
-            join Usuarios u on r.idUsuario = u.idUsuario
+            join Usuarios u on r.usuario.idUsuario = u.idUsuario
             where r.idRutina = :id
             """)
     Optional<RutinasUsuarioDTO> buscarDetallePorId(@Param("id") Integer id);

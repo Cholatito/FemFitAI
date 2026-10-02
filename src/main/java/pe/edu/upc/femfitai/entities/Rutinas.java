@@ -13,8 +13,9 @@ public class Rutinas {
     @Column(name = "\"IdRutina\"", nullable = false)
     private Integer idRutina;
 
-    @Column(name = "\"IdUsuario\"", nullable = false)
-    private Integer idUsuario;
+    @ManyToOne
+    @JoinColumn(name = "\"IdUsuario\"", nullable = false)
+    private Usuarios usuario;
 
     @Column(name = "\"Nombre\"", nullable = false, length = 100)
     private String nombre;
@@ -35,8 +36,8 @@ public class Rutinas {
 
     public Rutinas() {}
 
-    public Rutinas(Integer idUsuario, String nombre, String objetivo, String nivel, LocalDateTime fechaCreacion, Boolean estado) {
-        this.idUsuario = idUsuario;
+    public Rutinas(Usuarios usuario, String nombre, String objetivo, String nivel, LocalDateTime fechaCreacion, Boolean estado) {
+        this.usuario = usuario;
         this.nombre = nombre;
         this.objetivo = objetivo;
         this.nivel = nivel;
@@ -52,12 +53,12 @@ public class Rutinas {
         this.idRutina = idRutina;
     }
 
-    public Integer getIdUsuario() {
-        return idUsuario;
+    public Usuarios getUsuario() {
+        return usuario;
     }
 
-    public void setIdUsuario(Integer idUsuario) {
-        this.idUsuario = idUsuario;
+    public void setUsuario(Usuarios usuario) {
+        this.usuario = usuario;
     }
 
     public String getNombre() {

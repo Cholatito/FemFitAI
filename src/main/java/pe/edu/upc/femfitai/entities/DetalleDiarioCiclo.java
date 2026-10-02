@@ -12,8 +12,9 @@ public class DetalleDiarioCiclo {
     @Column(name = "\"IdDetalleDiarioCiclo\"", nullable = false)
     private Integer idDetalleDiarioCiclo;
 
-    @Column(name = "\"IdCiclo\"", nullable = false)
-    private Integer idCiclo;
+    @ManyToOne
+    @JoinColumn(name = "\"IdCiclo\"", nullable = false)
+    private Ciclos ciclo;
 
     @Column(name = "\"Fecha\"", nullable = false)
     private LocalDate fecha;
@@ -29,8 +30,8 @@ public class DetalleDiarioCiclo {
 
     public DetalleDiarioCiclo() {}
 
-    public DetalleDiarioCiclo(Integer idCiclo, LocalDate fecha, String faseRegistrada, Integer nivelEnergia, String observaciones) {
-        this.idCiclo = idCiclo;
+    public DetalleDiarioCiclo(Ciclos ciclo, LocalDate fecha, String faseRegistrada, Integer nivelEnergia, String observaciones) {
+        this.ciclo = ciclo;
         this.fecha = fecha;
         this.faseRegistrada = faseRegistrada;
         this.nivelEnergia = nivelEnergia;
@@ -45,14 +46,13 @@ public class DetalleDiarioCiclo {
         this.idDetalleDiarioCiclo = idDetalleDiarioCiclo;
     }
 
-    public Integer getIdCiclo() {
-        return idCiclo;
+    public Ciclos getCiclo() {
+        return ciclo;
     }
 
-    public void setIdCiclo(Integer idCiclo) {
-        this.idCiclo = idCiclo;
+    public void setCiclo(Ciclos ciclo) {
+        this.ciclo = ciclo;
     }
-
     public LocalDate getFecha() {
         return fecha;
     }
