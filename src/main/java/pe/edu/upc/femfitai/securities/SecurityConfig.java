@@ -83,13 +83,18 @@ public class SecurityConfig {
                         .permitAll()
 
                         .requestMatchers(HttpMethod.GET, "/usuarios")
-                        .hasRole("PROGRAMADOR")
+                        .hasAnyRole("ADMIN", "PROGRAMADOR")
                         .requestMatchers(HttpMethod.PUT, "/usuarios/**")
-                        .hasRole("PROGRAMADOR")
+                        .hasAnyRole("ADMIN", "PROGRAMADOR")
                         .requestMatchers(HttpMethod.DELETE, "/usuarios/**")
-                        .hasRole("PROGRAMADOR")
+                        .hasAnyRole("ADMIN", "PROGRAMADOR")
 
-                        // Todo lo demás requiere autenticación
+                        // US32 y US33: usar los roles administrativos existentes.
+                        .requestMatchers(HttpMethod.PUT, "/ejercicios/**")
+                        .hasAnyRole("ADMIN", "PROGRAMADOR")
+                        .requestMatchers(HttpMethod.DELETE, "/ejercicios/**")
+                        .hasAnyRole("ADMIN", "PROGRAMADOR")
+                        // Todo lo demás requiere autenticación.
                         .anyRequest().authenticated()
                 )
 

@@ -1,129 +1,71 @@
 package pe.edu.upc.femfitai.services.implementations;
 
-import org.springframework.http.HttpStatus;
+import java.time.LocalDate;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.transaction.annotation.Transactional;
 import pe.edu.upc.femfitai.dtos.DetalleDiarioCicloDTO;
-import pe.edu.upc.femfitai.dtos.DetalleDiarioCicloRequestDTO;
 import pe.edu.upc.femfitai.entities.Ciclos;
 import pe.edu.upc.femfitai.entities.DetalleDiarioCiclo;
 import pe.edu.upc.femfitai.repositories.CiclosRepository;
 import pe.edu.upc.femfitai.repositories.DetalleDiarioCicloRepository;
 import pe.edu.upc.femfitai.services.interfaces.IDetalleDiarioCicloService;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
+import static pe.edu.upc.femfitai.services.implementations.Validaciones.*;
 
 @Service
 public class DetalleDiarioCicloService implements IDetalleDiarioCicloService {
-
+    // La escala actual se conserva mientras se confirman los extremos funcionales en US08.
+    private static final int ENERGIA_MIN = 1;
+    private static final int ENERGIA_MAX = 5;
 
     private final DetalleDiarioCicloRepository repository;
-    private final CiclosRepository ciclosRepository;
+    private final CiclosRepository ciclos;
+    private final UsuarioActualService actual;
+    private final pe.edu.upc.femfitai.repositories.UsuariosRepository usuarios;
 
     public DetalleDiarioCicloService(DetalleDiarioCicloRepository repository,
-                                     CiclosRepository ciclosRepository) {
+                                     CiclosRepository ciclos,
+                                     UsuarioActualService actual,
+                                     pe.edu.upc.femfitai.repositories.UsuariosRepository usuarios) {
         this.repository = repository;
-        this.ciclosRepository = ciclosRepository;
+        this.ciclos = ciclos;
+        this.actual = actual;
+        this.usuarios = usuarios;
     }
 
     @Override
     @Transactional
-    public DetalleDiarioCicloDTO registrar(DetalleDiarioCicloDTO datos) {
-        Ciclos ciclo = validar(datos);
+    public DetalleDiarioCicloDTO guardar(DetalleDiarioCicloDTO d) {
+        exigir(d != null, "Los datos son obligatorios");
+        positivo(d.idCiclo(), "IdCiclo");
+        Ciclos ciclo = ciclos.findById(d.idCiclo().longValue())
+                .orElseThrow(() -> noEncontrado("Ciclo"));
+        actual.verificar(ciclo.getIdUsuario());
 
-        DetalleDiarioCiclo detalle = new DetalleDiarioCiclo(ciclo, datos.getFecha(),
-                datos.getFaseRegistrada(), datos.getNivelEnergia(), datos.getObservaciones());
-        return convertirADTO(repository.save(detalle));
+        LocalDate fecha = d.fecha() == null ? LocalDate.now() : d.fecha();
+        exigir(!fecha.isAfter(LocalDate.now()), "Fecha no puede ser futura");
+        exigir(d.nivelEnergia() != null, "NivelEnergia es obligatorio");
+        exigir(d.nivelEnergia() >= ENERGIA_MIN && d.nivelEnergia() <= ENERGIA_MAX,
+                "NivelEnergia debe estar entre " + ENERGIA_MIN + " y " + ENERGIA_MAX);
+        exigir(d.faseRegistrada() == null || java.util.Set.of("Menstrual", "Folicular", "Ovulatoria", "Lútea")
+                .contains(d.faseRegistrada()), "FaseRegistrada debe ser Menstrual, Folicular, Ovulatoria o Lútea");
+        texto(d.observaciones(), 255, "Observaciones", false);
+
+        // US10: bloquear la usuaria antes de consultar evita inserciones concurrentes,
+        // incluso cuando las solicitudes apuntan a ciclos distintos de la misma cuenta.
+        Integer usuario = actual.id();
+        usuarios.bloquear(usuario).orElseThrow(() -> noEncontrado("Usuario"));
+        DetalleDiarioCiclo e = repository.buscarPorUsuarioYFecha(usuario.longValue(), fecha)
+                .stream().findFirst().orElseGet(DetalleDiarioCiclo::new);
+        e.setIdCiclo(d.idCiclo());
+        e.setFecha(fecha);
+        e.setFaseRegistrada(d.faseRegistrada());
+        e.setNivelEnergia(d.nivelEnergia());
+        e.setObservaciones(d.observaciones());
+        return dto(repository.save(e));
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<DetalleDiarioCicloDTO> listar() {
-        return repository.findAll().stream()
-                .map(this::convertirADTO)
-                .toList();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public DetalleDiarioCicloDTO buscarPorId(Integer id) {
-        return convertirADTO(obtenerDetalle(id));
-    }
-
-    @Override
-    @Transactional
-    public DetalleDiarioCicloDTO actualizar(Integer id, DetalleDiarioCicloDTO datos) {
-        DetalleDiarioCiclo detalle = obtenerDetalle(id);
-        Ciclos ciclo = validar(datos);
-
-        detalle.setCiclo(ciclo);
-        detalle.setFecha(datos.getFecha());
-        detalle.setFaseRegistrada(datos.getFaseRegistrada());
-        detalle.setNivelEnergia(datos.getNivelEnergia());
-        detalle.setObservaciones(datos.getObservaciones());
-        return convertirADTO(repository.save(detalle));
-    }
-
-    @Override
-    @Transactional
-    public void eliminar(Integer id) {
-        repository.delete(obtenerDetalle(id));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<DetalleDiarioCicloDTO> listarPorCiclo(Long idCiclo) {
-        if (!esInteger(idCiclo)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "idCiclo debe estar dentro del rango INTEGER de PostgreSQL");
-        }
-        return repository.findByCiclo_IdCicloOrderByFechaAsc(idCiclo).stream()
-                .map(this::convertirADTO)
-                .toList();
-    }
-
-    // ---------- helpers privados ----------
-
-    private DetalleDiarioCiclo obtenerDetalle(Integer id) {
-        if (id == null) {
-            throw noEncontrado(id);
-        }
-        return repository.findById(id).orElseThrow(() -> noEncontrado(id));
-    }
-
-    private ResponseStatusException noEncontrado(Integer id) {
-        return new ResponseStatusException(HttpStatus.NOT_FOUND,
-                "No existe un detalle diario de ciclo con ID " + id);
-    }
-
-    /** Valida el request y devuelve el ciclo (FK) ya cargado desde la BD. */
-    private Ciclos validar(DetalleDiarioCicloDTO datos) {
-        if (datos == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
-        }
-        Validaciones.exigir(datos.getIdCiclo() != null, "idCiclo es obligatorio");
-        Validaciones.exigir(datos.getFecha() != null, "fecha es obligatoria");
-        Validaciones.texto(datos.getFaseRegistrada(), 50, "faseRegistrada", false);
-        Validaciones.texto(datos.getObservaciones(), 255, "observaciones", false);
-
-        if (!esInteger(datos.getIdCiclo())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "idCiclo debe estar dentro del rango INTEGER de PostgreSQL");
-        }
-        return ciclosRepository.findById(datos.getIdCiclo())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "No existe un ciclo con ID " + datos.getIdCiclo()));
-    }
-
-    private boolean esInteger(Long valor) {
-        return valor != null && valor >= Integer.MIN_VALUE && valor <= Integer.MAX_VALUE;
-    }
-
-    private DetalleDiarioCicloDTO convertirADTO(DetalleDiarioCiclo detalle) {
-        return new DetalleDiarioCicloDTO(detalle.getIdDetalleDiarioCiclo(),
-                detalle.getCiclo().getIdCiclo(), detalle.getFecha(),
-                detalle.getFaseRegistrada(), detalle.getNivelEnergia(), detalle.getObservaciones());
+    private DetalleDiarioCicloDTO dto(DetalleDiarioCiclo e) {
+        return new DetalleDiarioCicloDTO(e.getIdDetalleDiarioCiclo(), e.getIdCiclo(), e.getFecha(),
+                e.getFaseRegistrada(), e.getNivelEnergia(), e.getObservaciones());
     }
 }
-

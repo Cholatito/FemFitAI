@@ -7,30 +7,25 @@ import pe.edu.upc.femfitai.services.interfaces.IUsuariosService;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
-
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.upc.femfitai.dtos.UsuariosDTO;
 import pe.edu.upc.femfitai.entities.Usuarios;
-
+import pe.edu.upc.femfitai.repositories.IUsersRepository;
 
 @Service
 public class UsuariosService implements IUsuariosService {
-    private static final Set<String> ROLES_PERMITIDOS = Set.of("PROGRAMADOR", "TESTER");
-    private static final String ROL_POR_DEFECTO = "TESTER";
-
     private final UsuariosRepository repository;
     private final PasswordEncoder passwordEncoder;
+    private final UsuarioActualService actual;
 
-    public UsuariosService(UsuariosRepository repository, PasswordEncoder passwordEncoder) {
+    public UsuariosService(UsuariosRepository repository, PasswordEncoder passwordEncoder, UsuarioActualService actual) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
+        this.actual = actual;
     }
 
     @Override
@@ -43,10 +38,9 @@ public class UsuariosService implements IUsuariosService {
         if (repository.findByCorreo(datos.getCorreo()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "El correo ya está registrado");
         }
-        String rol = resolverRolAlRegistrar(datos.getRol());
         Usuarios usuario = new Usuarios(datos.getNombres(), datos.getApellidos(),
                 datos.getCorreo(), passwordEncoder.encode(datos.getPasswordHash()),
-                rol,
+                "USUARIA",
                 datos.getEstado() == null ? true : datos.getEstado(), LocalDateTime.now());
         return convertirADTO(repository.save(usuario));
     }
@@ -60,6 +54,10 @@ public class UsuariosService implements IUsuariosService {
     @Override
     @Transactional(readOnly = true)
     public UsuariosDTO buscarPorId(Integer id) {
+        var solicitante = actual.obtener();
+        if (!java.util.Set.of("ADMIN", "PROGRAMADOR").contains(String.valueOf(solicitante.getRol()).trim().toUpperCase(Locale.ROOT))) {
+            actual.verificar(id);
+        }
         return convertirADTO(obtenerUsuario(id));
     }
 
@@ -105,6 +103,13 @@ public class UsuariosService implements IUsuariosService {
         obligatorio(apellidos, "Apellidos");
         obligatorio(correo, "Correo");
         obligatorio(passwordHash, "PasswordHash");
+        if (passwordHash.length() < 8
+                || passwordHash.chars().noneMatch(Character::isUpperCase)
+                || passwordHash.chars().noneMatch(Character::isLowerCase)
+                || passwordHash.chars().noneMatch(Character::isDigit)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número");
+        }
     }
 
     private void obligatorio(String valor, String campo) {
@@ -115,30 +120,11 @@ public class UsuariosService implements IUsuariosService {
 
     private String normalizarRol(String rol) {
         String rolNormalizado = rol.trim().toUpperCase(Locale.ROOT);
-        if (!ROLES_PERMITIDOS.contains(rolNormalizado)) {
+        if (!java.util.Set.of("USUARIA", "ADMIN", "TESTER", "PROGRAMADOR").contains(rolNormalizado)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Rol debe ser PROGRAMADOR o TESTER");
+                    "Rol debe ser USUARIA, ADMIN, TESTER o PROGRAMADOR");
         }
         return rolNormalizado;
-    }
-
-    private String resolverRolAlRegistrar(String rolSolicitado) {
-        if (rolSolicitado == null || rolSolicitado.isBlank()) {
-            return ROL_POR_DEFECTO;
-        }
-        String rol = normalizarRol(rolSolicitado);
-        if (rol.equals("PROGRAMADOR") && !quienLlamaEsProgramador()) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Solo un PROGRAMADOR puede crear otro PROGRAMADOR");
-        }
-        return rol;
-    }
-
-    private boolean quienLlamaEsProgramador() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        return auth != null && auth.isAuthenticated()
-                && auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_PROGRAMADOR"));
     }
 
     private UsuariosDTO convertirADTO(Usuarios usuario) {

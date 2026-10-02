@@ -13,6 +13,16 @@ import pe.edu.upc.femfitai.services.interfaces.IEjerciciosService;
 public class EjerciciosController {
     private final IEjerciciosService service;
 
+    @GetMapping("/buscar")
+    @io.swagger.v3.oas.annotations.Operation(summary = "US34 Buscar ejercicios por tipo y nombre con paginacion")
+    public org.springframework.data.domain.Page<EjerciciosDTO> buscar(
+            @RequestParam(required = false) String tipo,
+            @RequestParam(required = false) String query,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = "20") int tamano) {
+        return service.buscar(new pe.edu.upc.femfitai.dtos.BusquedaEjerciciosDTO(tipo, query, pagina, tamano));
+    }
+
     public EjerciciosController(IEjerciciosService service) {
         this.service = service;
     }

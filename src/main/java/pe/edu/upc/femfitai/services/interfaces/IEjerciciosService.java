@@ -5,6 +5,7 @@ import pe.edu.upc.femfitai.dtos.EjerciciosDTO;
 import pe.edu.upc.femfitai.dtos.EjerciciosUsuarioDTO;
 
 public interface IEjerciciosService {
+    org.springframework.data.domain.Page<EjerciciosDTO> buscar(pe.edu.upc.femfitai.dtos.BusquedaEjerciciosDTO criterios);
     EjerciciosDTO registrar(EjerciciosDTO datos);
     List<EjerciciosDTO> listar();
     EjerciciosDTO buscarPorId(Integer id);
