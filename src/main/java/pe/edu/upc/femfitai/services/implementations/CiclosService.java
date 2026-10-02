@@ -1,5 +1,6 @@
 package pe.edu.upc.femfitai.services.implementations;
 
+import pe.edu.upc.femfitai.dtos.CiclosDTOUpdate;
 import pe.edu.upc.femfitai.services.interfaces.ICiclosService;
 
 import pe.edu.upc.femfitai.dtos.CiclosUsuarioDTO;
@@ -13,8 +14,8 @@ import java.util.List;
 import java.time.LocalDate;
 
 import pe.edu.upc.femfitai.dtos.CiclosDTO;
-import pe.edu.upc.femfitai.dtos.CiclosDTOUpdate;
 import pe.edu.upc.femfitai.entities.Ciclos;
+import pe.edu.upc.femfitai.entities.Usuarios;
 import pe.edu.upc.femfitai.repositories.CiclosRepository;
 
 @Service
@@ -47,15 +48,15 @@ public class CiclosService implements ICiclosService {
                     "idUsuario debe estar dentro del rango INTEGER de PostgreSQL");
         }
 
+        Long idUsuario = datos.getIdUsuario();
         LocalDate fechaFinEstimada = datos.getFechaInicio().plusDays(28);
-        validarPropietarioYFechas(datos.getIdUsuario(), datos.getFechaInicio(), fechaFinEstimada, datos.getFechaReal());
-        usuarios.bloquear(datos.getIdUsuario().intValue()).orElseThrow(() -> Validaciones.noEncontrado("Usuario"));
-        Validaciones.conflicto(repository.existsByIdUsuarioAndFechaRealIsNull(datos.getIdUsuario()),
+        validarPropietarioYFechas(idUsuario, datos.getFechaInicio(), fechaFinEstimada, datos.getFechaReal());
+        Usuarios usuario = usuarios.findById(idUsuario.intValue())
+                .orElseThrow(() -> Validaciones.noEncontrado("Usuario"));
+        Validaciones.conflicto(repository.existsByUsuario_IdUsuarioAndFechaRealIsNull(idUsuario),
                 "La usuaria ya tiene un ciclo activo");
-        Ciclos ciclo = new Ciclos();
-        ciclo.setIdUsuario(datos.getIdUsuario());
-        ciclo.setFechaInicio(datos.getFechaInicio());
-        ciclo.setFechaFinEstimada(fechaFinEstimada);
+
+        Ciclos ciclo = new Ciclos(usuario, datos.getFechaInicio(), fechaFinEstimada);
         ciclo.setFechaReal(datos.getFechaReal());
         return convertirADTO(repository.save(ciclo));
     }
@@ -63,7 +64,7 @@ public class CiclosService implements ICiclosService {
     @Override
     @Transactional(readOnly = true)
     public List<CiclosDTO> listar() {
-        return repository.findByIdUsuarioOrderByFechaInicioDescIdCicloDesc(actual.id().longValue()).stream()
+        return repository.findByUsuario_IdUsuarioOrderByFechaInicioDescIdCicloDesc(actual.id().longValue()).stream()
                 .map(this::convertirADTO)
                 .toList();
     }
@@ -88,14 +89,18 @@ public class CiclosService implements ICiclosService {
                     "idUsuario debe estar dentro del rango INTEGER de PostgreSQL");
         }
 
+        Long idUsuario = datos.getIdUsuario();
         LocalDate fechaFinEstimada = datos.getFechaInicio().plusDays(28);
-        validarPropietarioYFechas(datos.getIdUsuario(), datos.getFechaInicio(), fechaFinEstimada, datos.getFechaReal());
-        usuarios.bloquear(datos.getIdUsuario().intValue()).orElseThrow(() -> Validaciones.noEncontrado("Usuario"));
+        validarPropietarioYFechas(idUsuario, datos.getFechaInicio(), fechaFinEstimada, datos.getFechaReal());
+        Usuarios usuario = usuarios.findById(idUsuario.intValue())
+                .orElseThrow(() -> Validaciones.noEncontrado("Usuario"));
+
         if (datos.getFechaReal() == null) {
-            Validaciones.conflicto(repository.existsByIdUsuarioAndFechaRealIsNullAndIdCicloNot(datos.getIdUsuario(), id),
+            Validaciones.conflicto(repository.existsByUsuario_IdUsuarioAndFechaRealIsNullAndIdCicloNot(idUsuario, id),
                     "La usuaria ya tiene otro ciclo activo");
         }
-        ciclo.setIdUsuario(datos.getIdUsuario());
+
+        ciclo.setUsuario(usuario);
         ciclo.setFechaInicio(datos.getFechaInicio());
         ciclo.setFechaFinEstimada(fechaFinEstimada);
         ciclo.setFechaReal(datos.getFechaReal());
@@ -119,16 +124,19 @@ public class CiclosService implements ICiclosService {
         Ciclos ciclo = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "No existe un ciclo con ID " + id));
-        actual.verificar(ciclo.getIdUsuario());
+        actual.verificar(ciclo.getUsuario().getIdUsuario().longValue());
         return ciclo;
     }
 
     private boolean esInteger(Long valor) {
-        return valor >= Integer.MIN_VALUE && valor <= Integer.MAX_VALUE;
+        return valor != null && valor >= Integer.MIN_VALUE && valor <= Integer.MAX_VALUE;
     }
 
     private CiclosDTO convertirADTO(Ciclos ciclo) {
-        return new CiclosDTO(ciclo.getIdCiclo(), ciclo.getIdUsuario(),
+        Long idUsuario = ciclo.getUsuario() != null && ciclo.getUsuario().getIdUsuario() != null
+                ? ciclo.getUsuario().getIdUsuario().longValue()
+                : null;
+        return new CiclosDTO(ciclo.getIdCiclo(), idUsuario,
                 ciclo.getFechaInicio(), ciclo.getFechaFinEstimada(), ciclo.getFechaReal());
     }
 
@@ -136,7 +144,7 @@ public class CiclosService implements ICiclosService {
     @Transactional(readOnly = true)
     public List<CiclosDTO> listarPorUsuario(Long idUsuario) {
         actual.verificar(idUsuario);
-        return repository.findByIdUsuarioOrderByFechaInicioDescIdCicloDesc(idUsuario).stream()
+        return repository.findByUsuario_IdUsuarioOrderByFechaInicioDescIdCicloDesc(idUsuario).stream()
                 .map(this::convertirADTO)
                 .toList();
     }
@@ -154,10 +162,10 @@ public class CiclosService implements ICiclosService {
                         "No existe un ciclo con ID " + id));
     }
 
-    private void validarPropietarioYFechas(Long usuario, java.time.LocalDate inicio,
-                                           java.time.LocalDate estimada, java.time.LocalDate real) {
+    private void validarPropietarioYFechas(Long usuario, LocalDate inicio,
+                                           LocalDate estimada, LocalDate real) {
         actual.verificar(usuario);
-        Validaciones.exigir(!inicio.isAfter(java.time.LocalDate.now()), "FechaInicio no puede ser futura");
+        Validaciones.exigir(!inicio.isAfter(LocalDate.now()), "FechaInicio no puede ser futura");
         Validaciones.exigir(estimada == null || !estimada.isBefore(inicio), "FechaFinEstimada no puede ser anterior a FechaInicio");
         Validaciones.exigir(real == null || !real.isBefore(inicio), "FechaFinReal no puede ser anterior a FechaInicio");
     }

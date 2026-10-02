@@ -2,7 +2,6 @@ package pe.edu.upc.femfitai.services.interfaces;
 
 import java.util.List;
 import pe.edu.upc.femfitai.dtos.RutinasDTO;
-import pe.edu.upc.femfitai.dtos.RutinasRequestDTO;
 import pe.edu.upc.femfitai.dtos.RutinasUsuarioDTO;
 
 public interface IRutinasService {

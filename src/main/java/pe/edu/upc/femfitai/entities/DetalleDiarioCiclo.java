@@ -53,7 +53,6 @@ public class DetalleDiarioCiclo {
     public void setCiclo(Ciclos ciclo) {
         this.ciclo = ciclo;
     }
-
     public LocalDate getFecha() {
         return fecha;
     }

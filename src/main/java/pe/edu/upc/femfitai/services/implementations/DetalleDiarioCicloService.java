@@ -1,8 +1,12 @@
 package pe.edu.upc.femfitai.services.implementations;
 
 import java.time.LocalDate;
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import pe.edu.upc.femfitai.dtos.DetalleDiarioCicloDTO;
 import pe.edu.upc.femfitai.entities.Ciclos;
 import pe.edu.upc.femfitai.entities.DetalleDiarioCiclo;
@@ -33,39 +37,119 @@ public class DetalleDiarioCicloService implements IDetalleDiarioCicloService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<DetalleDiarioCicloDTO> listar() {
+        return repository.findAll().stream()
+                .map(this::dto)
+                .toList();
+    }
+
+    @Override
+    public DetalleDiarioCicloDTO buscarPorId(Integer id) {
+        return dto(obtenerDetalle(id));
+    }
+
+    @Override
+    public DetalleDiarioCicloDTO actualizar(Integer id, DetalleDiarioCicloDTO datos) {
+        return null;
+    }
+
+    @Override
+    public void eliminar(Integer id) {
+
+    }
+
+    @Override
+    public List<DetalleDiarioCicloDTO> listarPorCiclo(Long idCiclo) {
+        return List.of();
+    }
+
+    @Override
     @Transactional
     public DetalleDiarioCicloDTO guardar(DetalleDiarioCicloDTO d) {
         exigir(d != null, "Los datos son obligatorios");
-        positivo(d.idCiclo(), "IdCiclo");
-        Ciclos ciclo = ciclos.findById(d.idCiclo().longValue())
+
+        // Adaptamos el Long del DTO al Integer que espera tu helper 'positivo'
+        positivo(d.getIdCiclo() != null ? d.getIdCiclo().intValue() : null, "IdCiclo");
+
+        // Como getIdCiclo() ya devuelve un Long, lo pasamos directamente sin hacer .longValue()
+        Ciclos ciclo = ciclos.findById(d.getIdCiclo())
                 .orElseThrow(() -> noEncontrado("Ciclo"));
-        actual.verificar(ciclo.getIdUsuario());
-
-        LocalDate fecha = d.fecha() == null ? LocalDate.now() : d.fecha();
+        actual.verificar(ciclo.getUsuario().getIdUsuario());
+        LocalDate fecha = d.getFecha() == null ? LocalDate.now() : d.getFecha();
         exigir(!fecha.isAfter(LocalDate.now()), "Fecha no puede ser futura");
-        exigir(d.nivelEnergia() != null, "NivelEnergia es obligatorio");
-        exigir(d.nivelEnergia() >= ENERGIA_MIN && d.nivelEnergia() <= ENERGIA_MAX,
+        exigir(d.getNivelEnergia() != null, "NivelEnergia es obligatorio");
+        exigir(d.getNivelEnergia() >= ENERGIA_MIN && d.getNivelEnergia() <= ENERGIA_MAX,
                 "NivelEnergia debe estar entre " + ENERGIA_MIN + " y " + ENERGIA_MAX);
-        exigir(d.faseRegistrada() == null || java.util.Set.of("Menstrual", "Folicular", "Ovulatoria", "Lútea")
-                .contains(d.faseRegistrada()), "FaseRegistrada debe ser Menstrual, Folicular, Ovulatoria o Lútea");
-        texto(d.observaciones(), 255, "Observaciones", false);
+        exigir(d.getFaseRegistrada() == null || java.util.Set.of("Menstrual", "Folicular", "Ovulatoria", "Lútea")
+                .contains(d.getFaseRegistrada()), "FaseRegistrada debe ser Menstrual, Folicular, Ovulatoria o Lútea");
+        texto(d.getObservaciones(), 255, "Observaciones", false);
 
-        // US10: bloquear la usuaria antes de consultar evita inserciones concurrentes,
-        // incluso cuando las solicitudes apuntan a ciclos distintos de la misma cuenta.
+        // US10: bloquear la usuaria antes de consultar evita inserciones concurrentes
         Integer usuario = actual.id();
         usuarios.bloquear(usuario).orElseThrow(() -> noEncontrado("Usuario"));
+
         DetalleDiarioCiclo e = repository.buscarPorUsuarioYFecha(usuario.longValue(), fecha)
                 .stream().findFirst().orElseGet(DetalleDiarioCiclo::new);
-        e.setIdCiclo(d.idCiclo());
+
+        // Seteamos el objeto Ciclo completo
+        e.setCiclo(ciclo);
+
         e.setFecha(fecha);
-        e.setFaseRegistrada(d.faseRegistrada());
-        e.setNivelEnergia(d.nivelEnergia());
-        e.setObservaciones(d.observaciones());
+        e.setFaseRegistrada(d.getFaseRegistrada());
+        e.setNivelEnergia(d.getNivelEnergia());
+        e.setObservaciones(d.getObservaciones());
+
         return dto(repository.save(e));
     }
-
     private DetalleDiarioCicloDTO dto(DetalleDiarioCiclo e) {
-        return new DetalleDiarioCicloDTO(e.getIdDetalleDiarioCiclo(), e.getIdCiclo(), e.getFecha(),
-                e.getFaseRegistrada(), e.getNivelEnergia(), e.getObservaciones());
+        DetalleDiarioCicloDTO dto = new DetalleDiarioCicloDTO();
+
+        dto.setIdDetalleDiarioCiclo(e.getIdDetalleDiarioCiclo());
+
+        // Como tu DTO ahora espera un Long, extraemos el ID directamente sin convertirlo a intValue()
+        Long cicloId = (e.getCiclo() != null) ? e.getCiclo().getIdCiclo() : null;
+        dto.setIdCiclo(cicloId);
+
+        dto.setFecha(e.getFecha());
+        dto.setFaseRegistrada(e.getFaseRegistrada());
+        dto.setNivelEnergia(e.getNivelEnergia());
+        dto.setObservaciones(e.getObservaciones());
+
+        return dto;
     }
+
+    private DetalleDiarioCiclo obtenerDetalle(Integer id) {
+        if (id == null) {
+            throw noEncontrado(id);
+        }
+        return repository.findById(id).orElseThrow(() -> noEncontrado(id));
+    }
+
+    private ResponseStatusException noEncontrado(Integer id) {
+        return new ResponseStatusException(HttpStatus.NOT_FOUND,
+                "No existe un detalle diario de ciclo con ID " + id);
+    }
+
+    /** Valida el request y devuelve el ciclo (FK) ya cargado desde la BD. */
+    private Ciclos validar(DetalleDiarioCicloDTO datos) {
+        if (datos == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
+        }
+        Validaciones.exigir(datos.getIdCiclo() != null, "idCiclo es obligatorio");
+        Validaciones.exigir(datos.getFecha() != null, "fecha es obligatoria");
+        Validaciones.texto(datos.getFaseRegistrada(), 50, "faseRegistrada", false);
+        Validaciones.texto(datos.getObservaciones(), 255, "observaciones", false);
+
+        if (!esInteger(datos.getIdCiclo())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "idCiclo debe estar dentro del rango INTEGER de PostgreSQL");
+        }
+        return ciclos.findById(datos.getIdCiclo())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "No existe un ciclo con ID " + datos.getIdCiclo()));
+    }
+
+
+
 }

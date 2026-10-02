@@ -5,7 +5,6 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTO;
-import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoRequestDTO;
 import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTODetalle;
 import pe.edu.upc.femfitai.services.interfaces.ISesionesEntrenamientoService;
 
@@ -20,7 +19,7 @@ public class SesionesEntrenamientoController {
 
     @PostMapping
     public ResponseEntity<SesionesEntrenamientoDTO> registrar(
-            @RequestBody SesionesEntrenamientoRequestDTO datos) {
+            @RequestBody SesionesEntrenamientoDTO datos) {
         SesionesEntrenamientoDTO sesion = service.registrar(datos);
         return ResponseEntity.created(URI.create("/sesiones/" + sesion.getIdSesion())).body(sesion);
     }
@@ -37,7 +36,7 @@ public class SesionesEntrenamientoController {
 
     @PutMapping("/{id}")
     public SesionesEntrenamientoDTO actualizar(
-            @PathVariable("id") Integer id, @RequestBody SesionesEntrenamientoRequestDTO datos) {
+            @PathVariable("id") Integer id, @RequestBody SesionesEntrenamientoDTO datos) {
         return service.actualizar(id, datos);
     }
 
