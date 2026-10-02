@@ -582,9 +582,9 @@ class BackendIntegrationTest {
         var c1 = ciclo(u);
         var c2 = ciclo(u);
         runConcurrently(u, () -> diarioService.guardar(new DetalleDiarioCicloDTO(null,
-                c1.getIdCiclo().intValue(), LocalDate.now(), "Menstrual", 3, "uno")),
+                c1.getIdCiclo(), LocalDate.now(), "Menstrual", 3, "uno")),
                 () -> diarioService.guardar(new DetalleDiarioCicloDTO(null,
-                        c2.getIdCiclo().intValue(), LocalDate.now(), "Folicular", 4, "dos")));
+                        c2.getIdCiclo(), LocalDate.now(), "Folicular", 4, "dos")));
         assertEquals(1, diarios.buscarPorUsuarioYFecha(u.getIdUsuario().longValue(), LocalDate.now()).size());
     }
 

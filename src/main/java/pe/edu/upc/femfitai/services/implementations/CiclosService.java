@@ -110,10 +110,7 @@ public class CiclosService implements ICiclosService {
     @Override
     @Transactional
     public void eliminar(Long id) {
-        Ciclos ciclo = obtenerCiclo(id);
-        Validaciones.conflicto(detalles.existsByIdCiclo(id.intValue()), "El ciclo tiene registros diarios relacionados");
-        repository.delete(ciclo);
-        repository.flush();
+        repository.delete(obtenerCiclo(id));
     }
 
     private Ciclos obtenerCiclo(Long id) {

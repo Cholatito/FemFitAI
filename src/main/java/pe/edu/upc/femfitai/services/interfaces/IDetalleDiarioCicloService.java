@@ -12,7 +12,7 @@ public interface IDetalleDiarioCicloService {
 
     DetalleDiarioCicloDTO buscarPorId(Integer id);
 
-    DetalleDiarioCicloDTO actualizar(Integer id, DetalleDiarioCicloRequestDTO datos);
+    DetalleDiarioCicloDTO actualizar(Integer id, DetalleDiarioCicloDTO datos);
 
     void eliminar(Integer id);
 

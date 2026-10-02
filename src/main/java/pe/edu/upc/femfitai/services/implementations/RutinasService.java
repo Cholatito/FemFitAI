@@ -1,5 +1,6 @@
 package pe.edu.upc.femfitai.services.implementations;
 
+import pe.edu.upc.femfitai.entities.Usuarios;
 import pe.edu.upc.femfitai.services.interfaces.IRutinasService;
 
 import java.time.LocalDateTime;
@@ -18,12 +19,10 @@ import pe.edu.upc.femfitai.repositories.UsuariosRepository;
 public class RutinasService implements IRutinasService {
     private final RutinasRepository repository;
     private final UsuariosRepository usuariosRepository;
-    private final UsuarioActualService actual;
 
-    public RutinasService(RutinasRepository repository, UsuariosRepository usuariosRepository, UsuarioActualService actual) {
+    public RutinasService(RutinasRepository repository, UsuariosRepository usuariosRepository) {
         this.repository = repository;
         this.usuariosRepository = usuariosRepository;
-        this.actual = actual;
     }
 
     @Override
@@ -32,18 +31,24 @@ public class RutinasService implements IRutinasService {
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
-        validar(datos.getIdUsuario(), datos.getNombre());
-        Rutinas rutina = new Rutinas(datos.getIdUsuario(), datos.getNombre(),
-                datos.getObjetivo(), datos.getNivel(),
-                datos.getFechaCreacion() == null ? LocalDateTime.now() : datos.getFechaCreacion(),
-                datos.getEstado() == null ? true : datos.getEstado());
+        // Validamos y obtenemos el objeto Usuarios completo
+        Usuarios usuario = validar(datos.getIdUsuario(), datos.getNombre());
+
+        Rutinas rutina = new Rutinas();
+        rutina.setUsuario(usuario);
+        rutina.setNombre(datos.getNombre());
+        rutina.setObjetivo(datos.getObjetivo());
+        rutina.setNivel(datos.getNivel());
+        rutina.setFechaCreacion(datos.getFechaCreacion() == null ? LocalDateTime.now() : datos.getFechaCreacion());
+        rutina.setEstado(datos.getEstado() == null ? true : datos.getEstado());
+
         return convertirADTO(repository.save(rutina));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<RutinasDTO> listar() {
-        return repository.findByIdUsuario(actual.id()).stream().map(this::convertirADTO).toList();
+        return repository.findAll().stream().map(this::convertirADTO).toList();
     }
 
     @Override
@@ -59,13 +64,15 @@ public class RutinasService implements IRutinasService {
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
-        validar(datos.getIdUsuario(), datos.getNombre());
-        rutina.setIdUsuario(datos.getIdUsuario());
+        Usuarios usuario = validar(datos.getIdUsuario(), datos.getNombre());
+
+        rutina.setUsuario(usuario);
         rutina.setNombre(datos.getNombre());
         rutina.setObjetivo(datos.getObjetivo());
         rutina.setNivel(datos.getNivel());
         rutina.setFechaCreacion(datos.getFechaCreacion());
         rutina.setEstado(datos.getEstado());
+
         return convertirADTO(repository.save(rutina));
     }
 
@@ -78,8 +85,7 @@ public class RutinasService implements IRutinasService {
     @Override
     @Transactional(readOnly = true)
     public List<RutinasDTO> listarPorUsuario(Integer idUsuario) {
-        actual.verificar(idUsuario);
-        return repository.findByIdUsuario(idUsuario).stream().map(this::convertirADTO).toList();
+        return repository.findByUsuario_IdUsuario(idUsuario).stream().map(this::convertirADTO).toList();
     }
 
     @Override
@@ -96,9 +102,7 @@ public class RutinasService implements IRutinasService {
         if (id == null) {
             throw noEncontrada(id);
         }
-        Rutinas rutina = repository.findById(id).orElseThrow(() -> noEncontrada(id));
-        actual.verificar(rutina.getIdUsuario());
-        return rutina;
+        return repository.findById(id).orElseThrow(() -> noEncontrada(id));
     }
 
     private ResponseStatusException noEncontrada(Integer id) {
@@ -106,23 +110,27 @@ public class RutinasService implements IRutinasService {
                 "No existe una rutina con ID " + id);
     }
 
-    private void validar(Integer idUsuario, String nombre) {
+    private Usuarios validar(Integer idUsuario, String nombre) {
         if (idUsuario == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "IdUsuario es obligatorio");
         }
         if (nombre == null || nombre.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nombre es obligatorio");
         }
-        actual.verificar(idUsuario);
-        if (!usuariosRepository.existsById(idUsuario)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "No existe un usuario con ID " + idUsuario);
-        }
-    }
+        return usuariosRepository.findById(idUsuario)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "No existe un usuario con ID " + idUsuario));
+    } // <-- Llave corregida (ya no hay llave sobrante)
 
     private RutinasDTO convertirADTO(Rutinas rutina) {
-        return new RutinasDTO(rutina.getIdRutina(), rutina.getIdUsuario(),
-                rutina.getNombre(), rutina.getObjetivo(), rutina.getNivel(),
-                rutina.getFechaCreacion(), rutina.getEstado());
+        RutinasDTO dto = new RutinasDTO();
+        dto.setIdRutina(rutina.getIdRutina());
+        dto.setIdUsuario(rutina.getUsuario() != null ? rutina.getUsuario().getIdUsuario() : null);
+        dto.setNombre(rutina.getNombre());
+        dto.setObjetivo(rutina.getObjetivo());
+        dto.setNivel(rutina.getNivel());
+        dto.setFechaCreacion(rutina.getFechaCreacion());
+        dto.setEstado(rutina.getEstado());
+        return dto;
     }
 }
