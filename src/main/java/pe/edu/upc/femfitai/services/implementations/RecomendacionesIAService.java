@@ -49,12 +49,27 @@ public class RecomendacionesIAService implements IRecomendacionesIAService {
         positivo(id, "IdRecomendacion");
         RecomendacionesIA recomendacion = repository.findById(id)
                 .orElseThrow(() -> noEncontrado("Recomendacion"));
-        actual.verificar(recomendacion.getIdUsuario());
+
+        // CORRECCIÓN: Navegamos por el objeto usuario
+        actual.verificar(recomendacion.getUsuario().getIdUsuario());
+
         return recomendacion;
     }
 
     private RecomendacionesIADTO dto(RecomendacionesIA e) {
-        return new RecomendacionesIADTO(e.getIdRecomendacion(), e.getIdUsuario(), e.getIdRutina(),
-                e.getFecha(), e.getTipo(), e.getContenido(), e.getMotivo(), e.getAceptada());
+        // CORRECCIÓN: Extraemos los IDs de forma segura desde los objetos
+        Integer idUsuario = (e.getUsuario() != null) ? e.getUsuario().getIdUsuario() : null;
+        Integer idRutina = (e.getRutina() != null) ? e.getRutina().getIdRutina() : null;
+
+        return new RecomendacionesIADTO(
+                e.getIdRecomendacion(),
+                idUsuario,
+                idRutina,
+                e.getFecha(), // Recuerda usar el nombre correcto del getter de tu fecha, como vimos antes
+                e.getTipo(),
+                e.getContenido(),
+                e.getMotivo(),
+                e.getAceptada()
+        );
     }
 }

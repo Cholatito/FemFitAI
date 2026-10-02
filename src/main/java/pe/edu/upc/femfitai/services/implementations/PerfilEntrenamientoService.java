@@ -25,13 +25,11 @@ public class PerfilEntrenamientoService implements IPerfilEntrenamientoService {
         exigir(d != null, "Los datos son obligatorios");
         Integer usuario = actual.id();
         if (d.idUsuario() != null) actual.verificar(d.idUsuario());
-        usuarios.bloquear(usuario).orElseThrow(() -> noEncontrado("Usuario"));
-        conflicto(repository.findByIdUsuario(usuario).isPresent(), "La usuaria ya tiene un perfil");
+        var usuarioObj = usuarios.bloquear(usuario).orElseThrow(() -> noEncontrado("Usuario"));        conflicto(repository.findByIdUsuario(usuario).isPresent(), "La usuaria ya tiene un perfil");
         validarPerfil(d.nivelEntrenamiento(), d.objetivoPrincipal());
         validarDisponibilidad(d.diasDisponibles(), d.tiempoDisponible());
         exigir(d.fechaNacimiento() != null && !d.fechaNacimiento().isAfter(LocalDate.now()), "FechaNacimiento obligatoria y no futura");
-        return dto(repository.save(new PerfilEntrenamiento(usuario, d.nivelEntrenamiento(), d.objetivoPrincipal(),
-                d.diasDisponibles(), d.tiempoDisponible(), d.fechaNacimiento())));
+        return dto(repository.save(new PerfilEntrenamiento(usuarioObj, d.nivelEntrenamiento(), d.objetivoPrincipal(), d.diasDisponibles(), d.tiempoDisponible(),d.fechaNacimiento())));
     }
     @Transactional(readOnly = true)
     public PerfilEntrenamientoDTO consultar() { return dto(propio()); }
@@ -65,6 +63,16 @@ public class PerfilEntrenamientoService implements IPerfilEntrenamientoService {
         positivo(tiempo, "TiempoDisponible");
     }
     private PerfilEntrenamientoDTO dto(PerfilEntrenamiento e) {
-        return new PerfilEntrenamientoDTO(e.getIdPerfil(), e.getIdUsuario(), e.getNivelEntrenamiento(), e.getObjetivoPrincipal(), e.getDiasDisponibles(), e.getTiempoDisponible(), e.getFechaNacimiento());
-    }
+// Extraemos el ID navegando por el objeto Usuarios de forma segura
+        Integer idUsuario = (e.getUsuario() != null) ? e.getUsuario().getIdUsuario() : null;
+
+        return new PerfilEntrenamientoDTO(
+                e.getIdPerfil(),
+                idUsuario,
+                e.getNivelEntrenamiento(),
+                e.getObjetivoPrincipal(),
+                e.getDiasDisponibles(),
+                e.getTiempoDisponible(),
+                e.getFechaNacimiento()
+        );    }
 }

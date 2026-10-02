@@ -22,6 +22,7 @@ public class DetalleSerieService implements IDetalleSerieService {
         this.sesiones = sesiones;
         this.actual = actual;
     }
+    @Override
     @Transactional
     public DetalleSerieDTO registrar(DetalleSerieDTO d) {
         exigir(d != null, "Los datos son obligatorios");
@@ -31,7 +32,15 @@ public class DetalleSerieService implements IDetalleSerieService {
         positivo(d.numeroSerie(), "NumeroSerie");
         validar(d.repeticiones(), d.pesoKg());
         conflicto(repository.existsByIdDetalleAndNumeroSerie(d.idDetalle(), d.numeroSerie()), "NumeroSerie ya registrado para este ejercicio");
-        return dto(repository.save(new DetalleSerie(d.idDetalle(), d.numeroSerie(), d.repeticiones(), d.pesoKg())));
+        // 2. Creamos la entidad pasando el objeto completo en lugar del Integer suelto
+        DetalleSerie nuevaSerie = new DetalleSerie(
+                detalle,
+                d.numeroSerie(),
+                d.repeticiones(),
+                d.pesoKg()
+        );
+
+        return dto(repository.save(nuevaSerie));
     }
     @Transactional(readOnly = true)
     public List<DetalleSerieDTO> listarPorDetalle(Integer idDetalle) {
@@ -51,21 +60,32 @@ public class DetalleSerieService implements IDetalleSerieService {
     private DetalleSerie propia(Integer id) {
         positivo(id, "IdSerie");
         var e = repository.findById(id).orElseThrow(() -> noEncontrado("Serie"));
-        detallePropio(e.getIdDetalle());
-        return e;
+        // Navegamos por el objeto DetalleSesion para obtener el ID
+        detallePropio(e.getDetalle().getIdDetalle());        return e;
     }
     private void detallePropio(Integer id) {
         positivo(id, "IdDetalle");
         propietario(detalles.findById(id).orElseThrow(() -> noEncontrado("Detalle de sesion")));
     }
     private void propietario(DetalleSesion d) {
-        actual.verificar(sesiones.findById(d.getIdSesion()).orElseThrow(() -> noEncontrado("Sesion")).getIdUsuario());
+        // Navegamos por el objeto Sesion, y luego por el objeto Usuario
+        actual.verificar(sesiones.findById(d.getSesion().getIdSesion())
+                .orElseThrow(() -> noEncontrado("Sesion")).getUsuario().getIdUsuario());
     }
     private void validar(Integer repeticiones, BigDecimal peso) {
         positivo(repeticiones, "Repeticiones");
         decimal(peso, "PesoKg", true, true);
     }
     private DetalleSerieDTO dto(DetalleSerie e) {
-        return new DetalleSerieDTO(e.getIdSerie(), e.getIdDetalle(), e.getNumeroSerie(), e.getRepeticiones(), e.getPesoKg());
+        // CORRECCIÓN: Usamos getDetalle() tal como descubriste arriba
+        Integer idDetalle = (e.getDetalle() != null) ? e.getDetalle().getIdDetalle() : null;
+
+        return new DetalleSerieDTO(
+                e.getIdSerie(),
+                idDetalle,
+                e.getNumeroSerie(),
+                e.getRepeticiones(),
+                e.getPesoKg()
+        );
     }
 }

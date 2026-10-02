@@ -29,9 +29,18 @@ public class DetalleSesionService implements IDetalleSesionService {
         exigir(d != null, "Los datos son obligatorios");
         sesionPropia(d.idSesion());
         positivo(d.idEjercicio(), "IdEjercicio");
-        if (!ejercicios.existsById(d.idEjercicio())) throw noEncontrado("Ejercicio");
+
+        // 1. Buscamos los objetos completos en la base de datos
+        var sesion = sesiones.findById(d.idSesion())
+                .orElseThrow(() -> noEncontrado("Sesion"));
+
+        var ejercicio = ejercicios.findById(d.idEjercicio())
+                .orElseThrow(() -> noEncontrado("Ejercicio"));
+
         texto(d.observacion(), 255, "Observacion", false);
-        return dto(repository.save(new DetalleSesion(d.idSesion(), d.idEjercicio(), d.observacion())));
+
+        // 2. Pasamos los objetos completos al constructor
+        return dto(repository.save(new DetalleSesion(sesion, ejercicio, d.observacion())));
     }
     @Transactional(readOnly = true)
     public List<DetalleSesionEjercicioDTO> listarPorSesion(Integer idSesion) {
@@ -56,14 +65,32 @@ public class DetalleSesionService implements IDetalleSesionService {
     private DetalleSesion propio(Integer id) {
         positivo(id, "IdDetalle");
         var e = repository.bloquear(id).orElseThrow(() -> noEncontrado("Detalle de sesion"));
-        sesionPropia(e.getIdSesion());
+
+        // CORRECCIÓN 1: Navegamos por el objeto Sesion
+        sesionPropia(e.getSesion().getIdSesion());
+
         return e;
     }
+
     private void sesionPropia(Integer id) {
         positivo(id, "IdSesion");
-        actual.verificar(sesiones.findById(id).orElseThrow(() -> noEncontrado("Sesion")).getIdUsuario());
+
+        // CORRECCIÓN 2: Navegamos por el objeto Usuario dentro de la Sesion
+        actual.verificar(sesiones.findById(id)
+                .orElseThrow(() -> noEncontrado("Sesion"))
+                .getUsuario().getIdUsuario());
     }
+
     private DetalleSesionDTO dto(DetalleSesion e) {
-        return new DetalleSesionDTO(e.getIdDetalle(), e.getIdSesion(), e.getIdEjercicio(), e.getObservacion());
+        // CORRECCIÓN 3: Extraemos los IDs de forma segura desde los objetos relacionados
+        Integer idSesion = (e.getSesion() != null) ? e.getSesion().getIdSesion() : null;
+        Integer idEjercicio = (e.getEjercicio() != null) ? e.getEjercicio().getIdEjercicio() : null;
+
+        return new DetalleSesionDTO(
+                e.getIdDetalle(),
+                idSesion,
+                idEjercicio,
+                e.getObservacion()
+        );
     }
 }
