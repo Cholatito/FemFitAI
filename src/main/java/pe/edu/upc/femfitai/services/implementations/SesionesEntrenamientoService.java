@@ -23,13 +23,16 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
     private final SesionesEntrenamientoRepository repository;
     private final RutinasRepository rutinasRepository;
     private final UsuariosRepository usuariosRepository;
+    private final UsuarioActualService actual;
 
     public SesionesEntrenamientoService(SesionesEntrenamientoRepository repository,
                                         RutinasRepository rutinasRepository,
-                                        UsuariosRepository usuariosRepository) {
+                                        UsuariosRepository usuariosRepository,
+                                        UsuarioActualService actual) {
         this.repository = repository;
         this.rutinasRepository = rutinasRepository;
         this.usuariosRepository = usuariosRepository;
+        this.actual = actual;
     }
 
     @Override
@@ -38,6 +41,8 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
+        Integer idUsuario = actual.id();
+        validarRegistro(datos);
         Rutinas rutina = obtenerRutina(datos.getIdRutina());
         Usuarios usuario = obtenerUsuario(datos.getIdUsuario());
         SesionesEntrenamiento sesion = new SesionesEntrenamiento(
@@ -51,7 +56,7 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
     @Override
     @Transactional(readOnly = true)
     public List<SesionesEntrenamientoDTO> listar() {
-        return repository.findAll().stream().map(this::convertirADTO).toList();
+        return repository.findByUsuario_IdUsuario(actual.id()).stream().map(this::convertirADTO).toList();
     }
 
     @Override
@@ -68,8 +73,6 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
         sesion.setRutina(obtenerRutina(datos.getIdRutina()));
-        sesion.setUsuario(obtenerUsuario(datos.getIdUsuario()));
-        sesion.setFecha(datos.getFecha());
         sesion.setDuracionMin(datos.getDuracionMin());
         sesion.setNivelEnergia(datos.getNivelEnergia());
         sesion.setEsfuerzoPercibido(datos.getEsfuerzoPercibido());
@@ -86,6 +89,7 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
     @Override
     @Transactional(readOnly = true)
     public List<SesionesEntrenamientoDTO> listarPorUsuario(Integer idUsuario) {
+        actual.verificar(idUsuario);
         return repository.findByUsuario_IdUsuario(idUsuario).stream().map(this::convertirADTO).toList();
     }
 
@@ -102,7 +106,9 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
         if (id == null) {
             throw noEncontrada(id);
         }
-        return repository.findById(id).orElseThrow(() -> noEncontrada(id));
+        SesionesEntrenamiento sesion = repository.findById(id).orElseThrow(() -> noEncontrada(id));
+        actual.verificar(sesion.getUsuario().getIdUsuario());
+        return sesion;
     }
 
     private ResponseStatusException noEncontrada(Integer id) {
@@ -127,7 +133,20 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "No existe un usuario con ID " + idUsuario));
     }
-
+    private void validarRegistro(SesionesEntrenamientoRequestDTO datos) {
+        if (datos.getIdRutina() == null)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "IdRutina es obligatorio");
+        var rutina = rutinasRepository.findById(datos.getIdRutina()).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.BAD_REQUEST, "No existe una rutina con ID " + datos.getIdRutina()));
+        actual.verificar(rutina.getUsuario().getIdUsuario());
+        if (datos.getIdUsuario() != null) actual.verificar(datos.getIdUsuario());
+        Validaciones.texto(datos.getEstado(), 30, "Estado", false);
+        Validaciones.positivo(datos.getDuracionMin(), "DuracionMin");
+        if (datos.getNivelEnergia() == null || datos.getNivelEnergia() < 1 || datos.getNivelEnergia() > 5)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "NivelEnergia debe estar entre 1 y 5");
+        if (datos.getEsfuerzoPercibido() == null || datos.getEsfuerzoPercibido() < 1 || datos.getEsfuerzoPercibido() > 10)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "EsfuerzoPercibido debe estar entre 1 y 10");
+    }
     private SesionesEntrenamientoDTO convertirADTO(SesionesEntrenamiento sesion) {
         return new SesionesEntrenamientoDTO(
                 sesion.getIdSesion(), sesion.getRutina().getIdRutina(), sesion.getUsuario().getIdUsuario(),
