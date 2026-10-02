@@ -65,8 +65,6 @@ public class DetalleSesionService implements IDetalleSesionService {
     private DetalleSesion propio(Integer id) {
         positivo(id, "IdDetalle");
         var e = repository.bloquear(id).orElseThrow(() -> noEncontrado("Detalle de sesion"));
-
-        // CORRECCIÓN 1: Navegamos por el objeto Sesion
         sesionPropia(e.getSesion().getIdSesion());
 
         return e;
@@ -75,14 +73,12 @@ public class DetalleSesionService implements IDetalleSesionService {
     private void sesionPropia(Integer id) {
         positivo(id, "IdSesion");
 
-        // CORRECCIÓN 2: Navegamos por el objeto Usuario dentro de la Sesion
         actual.verificar(sesiones.findById(id)
                 .orElseThrow(() -> noEncontrado("Sesion"))
                 .getUsuario().getIdUsuario());
     }
 
     private DetalleSesionDTO dto(DetalleSesion e) {
-        // CORRECCIÓN 3: Extraemos los IDs de forma segura desde los objetos relacionados
         Integer idSesion = (e.getSesion() != null) ? e.getSesion().getIdSesion() : null;
         Integer idEjercicio = (e.getEjercicio() != null) ? e.getEjercicio().getIdEjercicio() : null;
 

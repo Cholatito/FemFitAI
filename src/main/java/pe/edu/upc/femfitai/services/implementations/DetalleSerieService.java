@@ -32,7 +32,6 @@ public class DetalleSerieService implements IDetalleSerieService {
         positivo(d.numeroSerie(), "NumeroSerie");
         validar(d.repeticiones(), d.pesoKg());
         conflicto(repository.existsByIdDetalleAndNumeroSerie(d.idDetalle(), d.numeroSerie()), "NumeroSerie ya registrado para este ejercicio");
-        // 2. Creamos la entidad pasando el objeto completo en lugar del Integer suelto
         DetalleSerie nuevaSerie = new DetalleSerie(
                 detalle,
                 d.numeroSerie(),
