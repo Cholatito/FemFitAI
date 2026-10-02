@@ -1,5 +1,6 @@
 package pe.edu.upc.femfitai.controllers;
 
+import pe.edu.upc.femfitai.dtos.CiclosDTOUpdate;
 import pe.edu.upc.femfitai.dtos.CiclosUsuarioDTO;
 
 import org.springframework.http.ResponseEntity;
@@ -14,7 +15,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 import pe.edu.upc.femfitai.dtos.CiclosDTO;
-import pe.edu.upc.femfitai.dtos.CiclosRequestDTO;
 import pe.edu.upc.femfitai.services.interfaces.ICiclosService;
 
 @RestController
@@ -28,7 +28,7 @@ public class CiclosController {
     }
 
     @PostMapping
-    public CiclosDTO registrar(@RequestBody CiclosRequestDTO datos) {
+    public CiclosDTO registrar(@RequestBody CiclosDTO datos) {
         return service.registrar(datos);
     }
 
@@ -44,7 +44,7 @@ public class CiclosController {
 
     @PutMapping("/{id}")
     public CiclosDTO actualizar(@PathVariable("id") Long id,
-                                @RequestBody CiclosRequestDTO datos) {
+                                @RequestBody CiclosDTOUpdate datos) {
         return service.actualizar(id, datos);
     }
 
@@ -55,7 +55,7 @@ public class CiclosController {
     }
 
     @GetMapping("/usuario/{idUsuario}")
-    public List<CiclosDTO> listarPorUsuario(@PathVariable("idUsuario") Integer idUsuario) {
+    public List<CiclosDTO> listarPorUsuario(@PathVariable("idUsuario") Long idUsuario) {
         return service.listarPorUsuario(idUsuario);
     }
 

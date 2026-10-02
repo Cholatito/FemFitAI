@@ -1,12 +1,12 @@
 package pe.edu.upc.femfitai.services.interfaces;
 
 import pe.edu.upc.femfitai.dtos.DetalleDiarioCicloDTO;
-import pe.edu.upc.femfitai.dtos.DetalleDiarioCicloRequestDTO;
 
 import java.util.List;
 
 public interface IDetalleDiarioCicloService {
-    DetalleDiarioCicloDTO registrar(DetalleDiarioCicloDTO datos);
+    DetalleDiarioCicloDTO guardar(DetalleDiarioCicloDTO datos);
+
 
     List<DetalleDiarioCicloDTO> listar();
 
@@ -18,5 +18,3 @@ public interface IDetalleDiarioCicloService {
 
     List<DetalleDiarioCicloDTO> listarPorCiclo(Long idCiclo);
 }
-
-

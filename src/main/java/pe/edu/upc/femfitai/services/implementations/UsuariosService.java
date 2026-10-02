@@ -1,5 +1,7 @@
 package pe.edu.upc.femfitai.services.implementations;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import pe.edu.upc.femfitai.repositories.IUsersRepository;
 import pe.edu.upc.femfitai.repositories.UsuariosRepository;
 import pe.edu.upc.femfitai.services.interfaces.IUsuariosService;
@@ -10,27 +12,27 @@ import java.util.Locale;
 import java.util.Set;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.upc.femfitai.dtos.UsuariosDTO;
 import pe.edu.upc.femfitai.entities.Usuarios;
-
+import pe.edu.upc.femfitai.repositories.IUsersRepository;
 
 @Service
 public class UsuariosService implements IUsuariosService {
+    private final UsuariosRepository repository;
+    private final PasswordEncoder passwordEncoder;
+    private final UsuarioActualService actual;
     private static final Set<String> ROLES_PERMITIDOS = Set.of("PROGRAMADOR", "TESTER");
     private static final String ROL_POR_DEFECTO = "TESTER";
 
-    private final UsuariosRepository repository;
-    private final PasswordEncoder passwordEncoder;
 
-    public UsuariosService(UsuariosRepository repository, PasswordEncoder passwordEncoder) {
+    public UsuariosService(UsuariosRepository repository, PasswordEncoder passwordEncoder, UsuarioActualService actual) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
+        this.actual = actual;
     }
 
     @Override
@@ -121,7 +123,6 @@ public class UsuariosService implements IUsuariosService {
         }
         return rolNormalizado;
     }
-
     private String resolverRolAlRegistrar(String rolSolicitado) {
         if (rolSolicitado == null || rolSolicitado.isBlank()) {
             return ROL_POR_DEFECTO;
@@ -140,7 +141,6 @@ public class UsuariosService implements IUsuariosService {
                 && auth.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_PROGRAMADOR"));
     }
-
     private UsuariosDTO convertirADTO(Usuarios usuario) {
         return new UsuariosDTO(usuario.getIdUsuario(), usuario.getNombres(),
                 usuario.getApellidos(), usuario.getCorreo(), usuario.getRol(),

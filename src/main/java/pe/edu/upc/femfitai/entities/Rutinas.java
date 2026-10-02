@@ -45,6 +45,9 @@ public class Rutinas {
         this.estado = estado;
     }
 
+    public Rutinas(Integer idUsuario, String nombre, String objetivo, String nivel, LocalDateTime fechaCreacion, boolean estado) {
+    }
+
     public Integer getIdRutina() {
         return idRutina;
     }

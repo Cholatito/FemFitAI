@@ -10,14 +10,17 @@ import pe.edu.upc.femfitai.entities.Ciclos;
 
 public interface CiclosRepository extends JpaRepository<Ciclos, Long> {
 
-    java.util.List<Ciclos> findByUsuario_IdUsuario(Integer idUsuario);
+    java.util.List<Ciclos> findByUsuario_IdUsuario(Long idUsuario);
+    java.util.List<Ciclos> findByUsuario_IdUsuarioOrderByFechaInicioDescIdCicloDesc(Long idUsuario);
+    boolean existsByUsuario_IdUsuarioAndFechaRealIsNull(Long idUsuario);
+    boolean existsByUsuario_IdUsuarioAndFechaRealIsNullAndIdCicloNot(Long idUsuario, Long idCiclo);
 
     @Query("""
             select new pe.edu.upc.femfitai.dtos.CiclosUsuarioDTO(
-                c.idCiclo, c.usuario.idUsuario, u.nombres, u.apellidos,
+                c.idCiclo, u.idUsuario, u.nombres, u.apellidos,
                 c.fechaInicio, c.fechaFinEstimada, c.fechaReal)
             from Ciclos c
-            join Usuarios u on c.usuario.idUsuario = u.idUsuario
+            join c.usuario u
             where c.idCiclo = :id
             """)
     Optional<CiclosUsuarioDTO> buscarDetallePorId(

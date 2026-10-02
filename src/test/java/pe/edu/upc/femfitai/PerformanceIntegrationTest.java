@@ -39,6 +39,7 @@ class PerformanceIntegrationTest {
     @LocalServerPort int port;
     @Autowired UsuariosRepository usuarios;
     @Autowired CiclosRepository ciclos;
+    @Autowired pe.edu.upc.femfitai.repositories.DetalleDiarioCicloRepository diarios;
     @Autowired EjerciciosRepository ejercicios;
     @Autowired PerfilEntrenamientoRepository perfiles;
     @Autowired ProgresoRepository progresos;
@@ -79,6 +80,11 @@ class PerformanceIntegrationTest {
         long elapsed = System.nanoTime() - started;
         assertEquals(201, response.statusCode(), response.body());
         long elapsedMillis = Duration.ofNanos(elapsed).toMillis();
+        var saved = diarios.buscarPorUsuarioYFecha(owner.getIdUsuario().longValue(), LocalDate.now());
+        assertEquals(1, saved.size());
+        assertEquals(3, saved.get(0).getNivelEnergia());
+        assertEquals(json.readTree(response.body()).get("idDetalleDiarioCiclo").asInt(),
+                saved.get(0).getIdDetalleDiarioCiclo());
         System.out.println("H2 diagnostic only: US11 endpoint=POST /detalle-diario records=1 elapsed_ms=" + elapsedMillis);
     }
 
@@ -112,14 +118,18 @@ class PerformanceIntegrationTest {
     }
 
     @Test void us30ExerciseSearchEndpointIsMeasuredWithOneHundredExercises() throws Exception {
+        String marker = "Perf-" + UUID.randomUUID();
         for (int index = 0; index < 100; index++) {
-            ejercicios.save(new Ejercicios("Catalogo perf " + index, "Piernas", "Fuerza", "Descripcion"));
+            ejercicios.save(new Ejercicios(marker + " " + index, "Piernas", "Fuerza", "Descripcion"));
         }
         ejercicios.flush();
         long started = System.nanoTime();
-        var response = request("GET", "/ejercicios/buscar?tipo=Fuerza&tamano=100&pagina=0", null, jwt);
+        var response = request("GET", "/ejercicios/buscar?tipo=Fuerza&tamano=100&pagina=0&query=" + marker, null, jwt);
         long elapsedMillis = Duration.ofNanos(System.nanoTime() - started).toMillis();
         assertEquals(200, response.statusCode(), response.body());
+        var page = json.readTree(response.body());
+        assertEquals(100, page.get("totalElements").asInt());
+        assertEquals(100, page.get("content").size());
         System.out.println("US30 endpoint=GET /ejercicios/buscar records=100 elapsed_ms=" + elapsedMillis
                 + " limit_ms=not_defined_in_repo");
     }

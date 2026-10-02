@@ -1,5 +1,6 @@
 package pe.edu.upc.femfitai.services.implementations;
 
+import pe.edu.upc.femfitai.entities.Usuarios;
 import pe.edu.upc.femfitai.services.interfaces.IRutinasService;
 
 import java.time.LocalDateTime;
@@ -9,9 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.upc.femfitai.dtos.RutinasDTO;
-import pe.edu.upc.femfitai.dtos.RutinasRequestDTO;
 import pe.edu.upc.femfitai.dtos.RutinasUsuarioDTO;
-import pe.edu.upc.femfitai.entities.Usuarios;
 import pe.edu.upc.femfitai.entities.Rutinas;
 import pe.edu.upc.femfitai.repositories.RutinasRepository;
 import pe.edu.upc.femfitai.repositories.UsuariosRepository;
@@ -28,15 +27,21 @@ public class RutinasService implements IRutinasService {
 
     @Override
     @Transactional
-    public RutinasDTO registrar(RutinasRequestDTO datos) {
+    public RutinasDTO registrar(RutinasDTO datos) {
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
+        // Validamos y obtenemos el objeto Usuarios completo
         Usuarios usuario = validar(datos.getIdUsuario(), datos.getNombre());
-        Rutinas rutina = new Rutinas(usuario, datos.getNombre(),
-                datos.getObjetivo(), datos.getNivel(),
-                datos.getFechaCreacion() == null ? LocalDateTime.now() : datos.getFechaCreacion(),
-                datos.getEstado() == null ? true : datos.getEstado());
+
+        Rutinas rutina = new Rutinas();
+        rutina.setUsuario(usuario);
+        rutina.setNombre(datos.getNombre());
+        rutina.setObjetivo(datos.getObjetivo());
+        rutina.setNivel(datos.getNivel());
+        rutina.setFechaCreacion(datos.getFechaCreacion() == null ? LocalDateTime.now() : datos.getFechaCreacion());
+        rutina.setEstado(datos.getEstado() == null ? true : datos.getEstado());
+
         return convertirADTO(repository.save(rutina));
     }
 
@@ -54,17 +59,20 @@ public class RutinasService implements IRutinasService {
 
     @Override
     @Transactional
-    public RutinasDTO actualizar(Integer id, RutinasRequestDTO datos) {
+    public RutinasDTO actualizar(Integer id, RutinasDTO datos) {
         Rutinas rutina = obtenerRutina(id);
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
-        rutina.setUsuario(validar(datos.getIdUsuario(), datos.getNombre()));
+        Usuarios usuario = validar(datos.getIdUsuario(), datos.getNombre());
+
+        rutina.setUsuario(usuario);
         rutina.setNombre(datos.getNombre());
         rutina.setObjetivo(datos.getObjetivo());
         rutina.setNivel(datos.getNivel());
         rutina.setFechaCreacion(datos.getFechaCreacion());
         rutina.setEstado(datos.getEstado());
+
         return convertirADTO(repository.save(rutina));
     }
 
@@ -86,6 +94,7 @@ public class RutinasService implements IRutinasService {
         if (id == null) {
             throw noEncontrada(id);
         }
+        obtenerRutina(id);
         return repository.buscarDetallePorId(id).orElseThrow(() -> noEncontrada(id));
     }
 
@@ -111,11 +120,17 @@ public class RutinasService implements IRutinasService {
         return usuariosRepository.findById(idUsuario)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "No existe un usuario con ID " + idUsuario));
-    }
+    } // <-- Llave corregida (ya no hay llave sobrante)
 
     private RutinasDTO convertirADTO(Rutinas rutina) {
-        return new RutinasDTO(rutina.getIdRutina(), rutina.getUsuario().getIdUsuario(),
-                rutina.getNombre(), rutina.getObjetivo(), rutina.getNivel(),
-                rutina.getFechaCreacion(), rutina.getEstado());
+        RutinasDTO dto = new RutinasDTO();
+        dto.setIdRutina(rutina.getIdRutina());
+        dto.setIdUsuario(rutina.getUsuario() != null ? rutina.getUsuario().getIdUsuario() : null);
+        dto.setNombre(rutina.getNombre());
+        dto.setObjetivo(rutina.getObjetivo());
+        dto.setNivel(rutina.getNivel());
+        dto.setFechaCreacion(rutina.getFechaCreacion());
+        dto.setEstado(rutina.getEstado());
+        return dto;
     }
 }

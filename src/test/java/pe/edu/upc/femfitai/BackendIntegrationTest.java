@@ -102,9 +102,9 @@ class BackendIntegrationTest {
         JsonNode document = json.readTree(response.body());
         assertEquals("FemFitAI API", document.get("info").get("title").textValue());
         assertEquals("bearer", document.get("components").get("securitySchemes")
-                .get("bearerAuth").get("scheme").textValue());
+            .get("bearerAuth").get("scheme").textValue());
         assertEquals("JWT", document.get("components").get("securitySchemes")
-                .get("bearerAuth").get("bearerFormat").textValue());
+            .get("bearerAuth").get("bearerFormat").textValue());
     }
 
     @Test void userDetailsArePrivateAndAdministrativePermissionsRemainAvailable() throws Exception {
@@ -322,9 +322,9 @@ class BackendIntegrationTest {
         int detailId = json.readTree(detail.body()).get("idDetalle").asInt();
         long detailCount = detallesSesion.count();
         assertEquals(404, request("POST", "/detalle-sesion",
-                "{\"idSesion\":2147483647,\"idEjercicio\":" + e.getIdEjercicio() + "}", jwt).statusCode());
+            "{\"idSesion\":2147483647,\"idEjercicio\":" + e.getIdEjercicio() + "}", jwt).statusCode());
         assertEquals(404, request("POST", "/detalle-sesion",
-                "{\"idSesion\":" + session.getIdSesion() + ",\"idEjercicio\":2147483647}", jwt).statusCode());
+            "{\"idSesion\":" + session.getIdSesion() + ",\"idEjercicio\":2147483647}", jwt).statusCode());
         assertEquals(detailCount, detallesSesion.count());
         assertEquals(e.getIdEjercicio(), detallesSesion.findById(detailId).orElseThrow().getIdEjercicio());
         String seriesBody = "{\"idDetalle\":" + detailId + ",\"numeroSerie\":1,\"repeticiones\":10,\"pesoKg\":20}";
@@ -334,8 +334,8 @@ class BackendIntegrationTest {
         assertEquals(new BigDecimal("20.00"), series.findById(seriesId).orElseThrow().getPesoKg());
         assertEquals(10, series.findById(seriesId).orElseThrow().getRepeticiones());
         for (String invalid : List.of("{\"repeticiones\":0,\"pesoKg\":20}",
-                "{\"repeticiones\":-1,\"pesoKg\":20}",
-                "{\"repeticiones\":10,\"pesoKg\":-1}")) {
+            "{\"repeticiones\":-1,\"pesoKg\":20}",
+            "{\"repeticiones\":10,\"pesoKg\":-1}")) {
             assertEquals(400, request("PUT", "/detalle-serie/" + seriesId, invalid, jwt).statusCode());
             assertEquals(10, series.findById(seriesId).orElseThrow().getRepeticiones());
             assertEquals(new BigDecimal("20.00"), series.findById(seriesId).orElseThrow().getPesoKg());
@@ -346,7 +346,7 @@ class BackendIntegrationTest {
         assertEquals(403, request("GET", "/detalle-serie/detalle/" + detailId, null, otherJwt).statusCode());
         assertEquals(403, request("PUT", "/detalle-sesion/" + detailId, "{\"observacion\":\"Ajena\"}", otherJwt).statusCode());
         assertEquals(400, request("PUT", "/detalle-sesion/" + detailId,
-                "{\"observacion\":\"" + "O".repeat(256) + "\"}", jwt).statusCode());
+            "{\"observacion\":\"" + "O".repeat(256) + "\"}", jwt).statusCode());
         assertNull(detallesSesion.findById(detailId).orElseThrow().getObservacion());
         assertEquals(403, request("PUT", "/detalle-serie/" + seriesId, "{\"repeticiones\":12,\"pesoKg\":25}", otherJwt).statusCode());
         assertEquals(403, request("DELETE", "/detalle-sesion/" + detailId, null, otherJwt).statusCode());
@@ -522,33 +522,33 @@ class BackendIntegrationTest {
         }
     }
 
-    @Test void exerciseLimitsAndDescriptionPayloadsAreValidated() throws Exception {
+        @Test void exerciseLimitsAndDescriptionPayloadsAreValidated() throws Exception {
         String jwt = token(usuario("ADMIN"));
         String validName = "N".repeat(100);
         String validType = "T".repeat(50);
         String normalDescription = "Descripcion normal: movilidad < 3 y control de respiracion";
         var created = request("POST", "/ejercicios", "{\"nombre\":\"" + validName
-                + "\",\"tipo\":\"" + validType + "\",\"descripcion\":\""
-                + normalDescription + "\"}", jwt);
+            + "\",\"tipo\":\"" + validType + "\",\"descripcion\":\""
+            + normalDescription + "\"}", jwt);
         assertEquals(201, created.statusCode(), created.body());
         int id = json.readTree(created.body()).get("idEjercicio").asInt();
         assertEquals(org.springframework.web.util.HtmlUtils.htmlEscape(normalDescription),
                 ejercicios.findById(id).orElseThrow().getDescripcion());
         assertEquals(400, request("POST", "/ejercicios", "{\"nombre\":\""
-                + "N".repeat(101) + "\"}", jwt).statusCode());
+            + "N".repeat(101) + "\"}", jwt).statusCode());
         assertEquals(400, request("POST", "/ejercicios", "{\"nombre\":\"Nombre\",\"tipo\":\""
-                + "T".repeat(51) + "\"}", jwt).statusCode());
+            + "T".repeat(51) + "\"}", jwt).statusCode());
         for (String payload : List.of("<script>alert(1)</script>", "<img src=x onerror=alert(1)>",
-                "javascript:alert(1)")) {
+            "javascript:alert(1)")) {
             var invalid = request("POST", "/ejercicios", "{\"nombre\":\"Nombre\",\"descripcion\":\""
-                    + payload + "\"}", jwt);
+                + payload + "\"}", jwt);
             assertEquals(400, invalid.statusCode(), invalid.body());
             assertEquals(400, json.readTree(invalid.body()).get("status").asInt());
         }
         var invalidUpdate = request("PUT", "/ejercicios/" + id,
-                "{\"nombre\":\"Nombre\",\"descripcion\":\"<script>x</script>\"}", jwt);
+            "{\"nombre\":\"Nombre\",\"descripcion\":\"<script>x</script>\"}", jwt);
         assertEquals(400, invalidUpdate.statusCode(), invalidUpdate.body());
-    }
+        }
 
     @Test void dailyPhasesEnergyAndUpsertAreValidated() throws Exception {
         var u = usuario("USUARIA");
@@ -582,34 +582,34 @@ class BackendIntegrationTest {
         var c1 = ciclo(u);
         var c2 = ciclo(u);
         runConcurrently(u, () -> diarioService.guardar(new DetalleDiarioCicloDTO(null,
-                        c1.getIdCiclo().intValue(), LocalDate.now(), "Menstrual", 3, "uno")),
+                c1.getIdCiclo(), LocalDate.now(), "Menstrual", 3, "uno")),
                 () -> diarioService.guardar(new DetalleDiarioCicloDTO(null,
-                        c2.getIdCiclo().intValue(), LocalDate.now(), "Folicular", 4, "dos")));
+                        c2.getIdCiclo(), LocalDate.now(), "Folicular", 4, "dos")));
         assertEquals(1, diarios.buscarPorUsuarioYFecha(u.getIdUsuario().longValue(), LocalDate.now()).size());
     }
 
-    @Test void dailyObservationsAreOptionalAndRespectDatabaseLimit() throws Exception {
+        @Test void dailyObservationsAreOptionalAndRespectDatabaseLimit() throws Exception {
         var u = usuario("USUARIA");
         var c = ciclo(u);
         String jwt = token(u);
         var optional = request("POST", "/detalle-diario", "{\"idCiclo\":" + c.getIdCiclo()
-                + ",\"nivelEnergia\":3,\"observaciones\":null}", jwt);
+            + ",\"nivelEnergia\":3,\"observaciones\":null}", jwt);
         assertEquals(201, optional.statusCode(), optional.body());
         String observations = "O".repeat(255);
         var maximum = request("PUT", "/detalle-diario", "{\"idCiclo\":" + c.getIdCiclo()
-                + ",\"nivelEnergia\":3,\"observaciones\":\"" + observations + "\"}", jwt);
+            + ",\"nivelEnergia\":3,\"observaciones\":\"" + observations + "\"}", jwt);
         assertEquals(200, maximum.statusCode(), maximum.body());
         assertEquals(observations, diarios.buscarPorUsuarioYFecha(u.getIdUsuario().longValue(), LocalDate.now())
-                .get(0).getObservaciones());
+            .get(0).getObservaciones());
         var tooLong = request("PUT", "/detalle-diario", "{\"idCiclo\":" + c.getIdCiclo()
-                + ",\"nivelEnergia\":3,\"observaciones\":\"" + "O".repeat(256) + "\"}", jwt);
+            + ",\"nivelEnergia\":3,\"observaciones\":\"" + "O".repeat(256) + "\"}", jwt);
         assertEquals(400, tooLong.statusCode(), tooLong.body());
         assertEquals(400, json.readTree(tooLong.body()).get("status").asInt());
         assertTrue(tooLong.body().contains("Observaciones"));
         assertTrue(tooLong.body().contains("255"));
         assertEquals(observations, diarios.buscarPorUsuarioYFecha(u.getIdUsuario().longValue(), LocalDate.now())
-                .get(0).getObservaciones());
-    }
+            .get(0).getObservaciones());
+        }
 
     @Test void initialProfileRejectsInvalidFieldsWithoutPersistence() throws Exception {
         var owner = usuario("USUARIA");
