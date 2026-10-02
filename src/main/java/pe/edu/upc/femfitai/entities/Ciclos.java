@@ -15,9 +15,10 @@ public class Ciclos {
     @JdbcTypeCode(SqlTypes.INTEGER)
     private Long idCiclo;
 
-    @Column(name = "\"IdUsuario\"", nullable = false)
-    @JdbcTypeCode(SqlTypes.INTEGER)
-    private Long idUsuario;
+    // Relación correcta usando la llave foránea
+    @ManyToOne
+    @JoinColumn(name = "\"IdUsuario\"", nullable = false)
+    private Usuarios usuario;
 
     @Column(name = "\"FechaInicio\"", nullable = false)
     private LocalDate fechaInicio;
@@ -31,9 +32,9 @@ public class Ciclos {
 
     public Ciclos() {}
 
-    // Constructor con parámetros para facilitar registros
-    public Ciclos(Long idUsuario, LocalDate fechaInicio, LocalDate fechaFinEstimada) {
-        this.idUsuario = idUsuario;
+    // Constructor actualizado recibiendo el objeto Usuarios completo
+    public Ciclos(Usuarios usuario, LocalDate fechaInicio, LocalDate fechaFinEstimada) {
+        this.usuario = usuario;
         this.fechaInicio = fechaInicio;
         this.fechaFinEstimada = fechaFinEstimada;
     }
@@ -46,12 +47,12 @@ public class Ciclos {
         this.idCiclo = idCiclo;
     }
 
-    public Long getIdUsuario() {
-        return idUsuario;
+    public Usuarios getUsuario() {
+        return usuario;
     }
 
-    public void setIdUsuario(Long idUsuario) {
-        this.idUsuario = idUsuario;
+    public void setUsuario(Usuarios usuario) {
+        this.usuario = usuario;
     }
 
     public LocalDate getFechaInicio() {

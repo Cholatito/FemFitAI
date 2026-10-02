@@ -9,7 +9,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.upc.femfitai.dtos.RutinasDTO;
+import pe.edu.upc.femfitai.dtos.RutinasRequestDTO;
 import pe.edu.upc.femfitai.dtos.RutinasUsuarioDTO;
+import pe.edu.upc.femfitai.entities.Usuarios;
 import pe.edu.upc.femfitai.entities.Rutinas;
 import pe.edu.upc.femfitai.repositories.RutinasRepository;
 import pe.edu.upc.femfitai.repositories.UsuariosRepository;
@@ -18,22 +20,20 @@ import pe.edu.upc.femfitai.repositories.UsuariosRepository;
 public class RutinasService implements IRutinasService {
     private final RutinasRepository repository;
     private final UsuariosRepository usuariosRepository;
-    private final UsuarioActualService actual;
 
-    public RutinasService(RutinasRepository repository, UsuariosRepository usuariosRepository, UsuarioActualService actual) {
+    public RutinasService(RutinasRepository repository, UsuariosRepository usuariosRepository) {
         this.repository = repository;
         this.usuariosRepository = usuariosRepository;
-        this.actual = actual;
     }
 
     @Override
     @Transactional
-    public RutinasDTO registrar(RutinasDTO datos) {
+    public RutinasDTO registrar(RutinasRequestDTO datos) {
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
-        validar(datos.getIdUsuario(), datos.getNombre());
-        Rutinas rutina = new Rutinas(datos.getIdUsuario(), datos.getNombre(),
+        Usuarios usuario = validar(datos.getIdUsuario(), datos.getNombre());
+        Rutinas rutina = new Rutinas(usuario, datos.getNombre(),
                 datos.getObjetivo(), datos.getNivel(),
                 datos.getFechaCreacion() == null ? LocalDateTime.now() : datos.getFechaCreacion(),
                 datos.getEstado() == null ? true : datos.getEstado());
@@ -43,7 +43,7 @@ public class RutinasService implements IRutinasService {
     @Override
     @Transactional(readOnly = true)
     public List<RutinasDTO> listar() {
-        return repository.findByIdUsuario(actual.id()).stream().map(this::convertirADTO).toList();
+        return repository.findAll().stream().map(this::convertirADTO).toList();
     }
 
     @Override
@@ -54,13 +54,12 @@ public class RutinasService implements IRutinasService {
 
     @Override
     @Transactional
-    public RutinasDTO actualizar(Integer id, RutinasDTO datos) {
+    public RutinasDTO actualizar(Integer id, RutinasRequestDTO datos) {
         Rutinas rutina = obtenerRutina(id);
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
-        validar(datos.getIdUsuario(), datos.getNombre());
-        rutina.setIdUsuario(datos.getIdUsuario());
+        rutina.setUsuario(validar(datos.getIdUsuario(), datos.getNombre()));
         rutina.setNombre(datos.getNombre());
         rutina.setObjetivo(datos.getObjetivo());
         rutina.setNivel(datos.getNivel());
@@ -78,8 +77,7 @@ public class RutinasService implements IRutinasService {
     @Override
     @Transactional(readOnly = true)
     public List<RutinasDTO> listarPorUsuario(Integer idUsuario) {
-        actual.verificar(idUsuario);
-        return repository.findByIdUsuario(idUsuario).stream().map(this::convertirADTO).toList();
+        return repository.findByUsuario_IdUsuario(idUsuario).stream().map(this::convertirADTO).toList();
     }
 
     @Override
@@ -88,7 +86,6 @@ public class RutinasService implements IRutinasService {
         if (id == null) {
             throw noEncontrada(id);
         }
-        obtenerRutina(id);
         return repository.buscarDetallePorId(id).orElseThrow(() -> noEncontrada(id));
     }
 
@@ -96,9 +93,7 @@ public class RutinasService implements IRutinasService {
         if (id == null) {
             throw noEncontrada(id);
         }
-        Rutinas rutina = repository.findById(id).orElseThrow(() -> noEncontrada(id));
-        actual.verificar(rutina.getIdUsuario());
-        return rutina;
+        return repository.findById(id).orElseThrow(() -> noEncontrada(id));
     }
 
     private ResponseStatusException noEncontrada(Integer id) {
@@ -106,22 +101,20 @@ public class RutinasService implements IRutinasService {
                 "No existe una rutina con ID " + id);
     }
 
-    private void validar(Integer idUsuario, String nombre) {
+    private Usuarios validar(Integer idUsuario, String nombre) {
         if (idUsuario == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "IdUsuario es obligatorio");
         }
         if (nombre == null || nombre.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nombre es obligatorio");
         }
-        actual.verificar(idUsuario);
-        if (!usuariosRepository.existsById(idUsuario)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "No existe un usuario con ID " + idUsuario);
-        }
+        return usuariosRepository.findById(idUsuario)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "No existe un usuario con ID " + idUsuario));
     }
 
     private RutinasDTO convertirADTO(Rutinas rutina) {
-        return new RutinasDTO(rutina.getIdRutina(), rutina.getIdUsuario(),
+        return new RutinasDTO(rutina.getIdRutina(), rutina.getUsuario().getIdUsuario(),
                 rutina.getNombre(), rutina.getObjetivo(), rutina.getNivel(),
                 rutina.getFechaCreacion(), rutina.getEstado());
     }

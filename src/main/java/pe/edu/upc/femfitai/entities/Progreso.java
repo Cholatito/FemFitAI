@@ -14,8 +14,9 @@ public class Progreso {
     @Column(name = "\"IdProgreso\"", nullable = false)
     private Integer idProgreso;
 
-    @Column(name = "\"IdUsuario\"", nullable = false)
-    private Integer idUsuario;
+    @ManyToOne
+    @JoinColumn(name = "\"IdUsuario\"", nullable = false)
+    private Usuarios usuario;
 
     @Column(name = "\"Fecha\"", nullable = true)
     @ColumnDefault("CURRENT_DATE")
@@ -32,8 +33,8 @@ public class Progreso {
 
     public Progreso() {}
 
-    public Progreso(Integer idUsuario, LocalDate fecha, BigDecimal pesoKg, BigDecimal medidaOpcional, String notaPersonal) {
-        this.idUsuario = idUsuario;
+    public Progreso(Usuarios usuario, LocalDate fecha, BigDecimal pesoKg, BigDecimal medidaOpcional, String notaPersonal) {
+        this.usuario = usuario;
         this.fecha = fecha;
         this.pesoKg = pesoKg;
         this.medidaOpcional = medidaOpcional;
@@ -48,12 +49,12 @@ public class Progreso {
         this.idProgreso = idProgreso;
     }
 
-    public Integer getIdUsuario() {
-        return idUsuario;
+    public Usuarios getUsuario() {
+        return usuario;
     }
 
-    public void setIdUsuario(Integer idUsuario) {
-        this.idUsuario = idUsuario;
+    public void setUsuario(Usuarios usuario) {
+        this.usuario = usuario;
     }
 
     public LocalDate getFecha() {

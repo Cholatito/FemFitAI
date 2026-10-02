@@ -30,9 +30,9 @@ public interface EjerciciosRepository extends JpaRepository<Ejercicios, Integer>
                 e.idEjercicio, e.nombre, e.grupoMuscular, e.tipo,
                 re.series, re.repeticiones, re.descansoSeg)
             from Usuarios u
-            join Rutinas r on r.idUsuario = u.idUsuario
-            join RutinaEjercicios re on re.idRutina = r.idRutina
-            join Ejercicios e on e.idEjercicio = re.idEjercicio
+            join Rutinas r on r.usuario.idUsuario = u.idUsuario
+            join RutinaEjercicios re on re.rutina.idRutina = r.idRutina
+            join Ejercicios e on e.idEjercicio = re.ejercicio.idEjercicio
             where u.idUsuario = :idUsuario
             order by r.idRutina, re.idRutinaEjercicio
             """)

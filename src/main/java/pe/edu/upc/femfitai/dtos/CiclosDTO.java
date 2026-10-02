@@ -4,7 +4,7 @@ import java.time.LocalDate;
 
 public class CiclosDTO {
     private Long idCiclo;
-    private Long idUsuario;
+    private Integer idUsuario;
     private LocalDate fechaInicio;
     private LocalDate fechaFinEstimada;
     private LocalDate fechaReal;
@@ -12,7 +12,7 @@ public class CiclosDTO {
     public CiclosDTO() {
     }
 
-    public CiclosDTO(Long idCiclo, Long idUsuario, LocalDate fechaInicio, LocalDate fechaFinEstimada, LocalDate fechaReal) {
+    public CiclosDTO(Long idCiclo, Integer idUsuario, LocalDate fechaInicio, LocalDate fechaFinEstimada, LocalDate fechaReal) {
         this.idCiclo = idCiclo;
         this.idUsuario = idUsuario;
         this.fechaInicio = fechaInicio;
@@ -28,11 +28,11 @@ public class CiclosDTO {
         this.idCiclo = idCiclo;
     }
 
-    public Long getIdUsuario() {
+    public Integer getIdUsuario() {
         return idUsuario;
     }
 
-    public void setIdUsuario(Long idUsuario) {
+    public void setIdUsuario(Integer idUsuario) {
         this.idUsuario = idUsuario;
     }
 

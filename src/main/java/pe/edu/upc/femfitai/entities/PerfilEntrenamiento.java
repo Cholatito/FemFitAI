@@ -13,8 +13,9 @@ public class PerfilEntrenamiento {
     @Column(name = "\"IdPerfil\"", nullable = false)
     private Integer idPerfil;
 
-    @Column(name = "\"IdUsuario\"", nullable = false)
-    private Integer idUsuario;
+    @OneToOne
+    @JoinColumn(name = "\"IdUsuario\"", nullable = false)
+    private Usuarios usuario;
 
     @Column(name = "\"NivelEntrenamiento\"", nullable = true, length = 50)
     private String nivelEntrenamiento;
@@ -33,8 +34,8 @@ public class PerfilEntrenamiento {
 
     public PerfilEntrenamiento() {}
 
-    public PerfilEntrenamiento(Integer idUsuario, String nivelEntrenamiento, String objetivoPrincipal, Integer diasDisponibles, Integer tiempoDisponible, LocalDate fechaNacimiento) {
-        this.idUsuario = idUsuario;
+    public PerfilEntrenamiento(Usuarios usuario, String nivelEntrenamiento, String objetivoPrincipal, Integer diasDisponibles, Integer tiempoDisponible, LocalDate fechaNacimiento) {
+        this.usuario = usuario;
         this.nivelEntrenamiento = nivelEntrenamiento;
         this.objetivoPrincipal = objetivoPrincipal;
         this.diasDisponibles = diasDisponibles;
@@ -50,12 +51,12 @@ public class PerfilEntrenamiento {
         this.idPerfil = idPerfil;
     }
 
-    public Integer getIdUsuario() {
-        return idUsuario;
+    public Usuarios getUsuario() {
+        return usuario;
     }
 
-    public void setIdUsuario(Integer idUsuario) {
-        this.idUsuario = idUsuario;
+    public void setUsuario(Usuarios usuario) {
+        this.usuario = usuario;
     }
 
     public String getNivelEntrenamiento() {

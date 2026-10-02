@@ -11,20 +11,22 @@ public class DetalleSesion {
     @Column(name = "\"IdDetalle\"", nullable = false)
     private Integer idDetalle;
 
-    @Column(name = "\"IdSesion\"", nullable = false)
-    private Integer idSesion;
+    @ManyToOne
+    @JoinColumn(name = "\"IdSesion\"", nullable = false)
+    private SesionesEntrenamiento sesion;
 
-    @Column(name = "\"IdEjercicio\"", nullable = false)
-    private Integer idEjercicio;
+    @ManyToOne
+    @JoinColumn(name = "\"IdEjercicio\"", nullable = false)
+    private Ejercicios ejercicio;
 
     @Column(name = "\"Observacion\"", nullable = true, length = 255)
     private String observacion;
 
     public DetalleSesion() {}
 
-    public DetalleSesion(Integer idSesion, Integer idEjercicio, String observacion) {
-        this.idSesion = idSesion;
-        this.idEjercicio = idEjercicio;
+    public DetalleSesion(SesionesEntrenamiento sesion, Ejercicios ejercicio, String observacion) {
+        this.sesion = sesion;
+        this.ejercicio = ejercicio;
         this.observacion = observacion;
     }
 
@@ -36,20 +38,20 @@ public class DetalleSesion {
         this.idDetalle = idDetalle;
     }
 
-    public Integer getIdSesion() {
-        return idSesion;
+    public SesionesEntrenamiento getSesion() {
+        return sesion;
     }
 
-    public void setIdSesion(Integer idSesion) {
-        this.idSesion = idSesion;
+    public void setSesion(SesionesEntrenamiento sesion) {
+        this.sesion = sesion;
     }
 
-    public Integer getIdEjercicio() {
-        return idEjercicio;
+    public Ejercicios getEjercicio() {
+        return ejercicio;
     }
 
-    public void setIdEjercicio(Integer idEjercicio) {
-        this.idEjercicio = idEjercicio;
+    public void setEjercicio(Ejercicios ejercicio) {
+        this.ejercicio = ejercicio;
     }
 
     public String getObservacion() {

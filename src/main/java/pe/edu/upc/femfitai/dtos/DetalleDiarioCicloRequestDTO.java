@@ -2,29 +2,15 @@ package pe.edu.upc.femfitai.dtos;
 
 import java.time.LocalDate;
 
-public class DetalleDiarioCicloDTO {
-    private Integer idDetalleDiarioCiclo;
+public class DetalleDiarioCicloRequestDTO {
     private Long idCiclo;
     private LocalDate fecha;
     private String faseRegistrada;
     private Integer nivelEnergia;
     private String observaciones;
 
-    public DetalleDiarioCicloDTO() {
-    }
 
-    public DetalleDiarioCicloDTO(Integer idDetalleDiarioCiclo, Long idCiclo, LocalDate fecha,
-                                 String faseRegistrada, Integer nivelEnergia, String observaciones) {
-        this.idDetalleDiarioCiclo = idDetalleDiarioCiclo;
-        this.idCiclo = idCiclo;
-        this.fecha = fecha;
-        this.faseRegistrada = faseRegistrada;
-        this.nivelEnergia = nivelEnergia;
-        this.observaciones = observaciones;
-    }
 
-    public Integer getIdDetalleDiarioCiclo() { return idDetalleDiarioCiclo; }
-    public void setIdDetalleDiarioCiclo(Integer idDetalleDiarioCiclo) { this.idDetalleDiarioCiclo = idDetalleDiarioCiclo; }
     public Long getIdCiclo() { return idCiclo; }
     public void setIdCiclo(Long idCiclo) { this.idCiclo = idCiclo; }
     public LocalDate getFecha() { return fecha; }
@@ -36,6 +22,4 @@ public class DetalleDiarioCicloDTO {
     public String getObservaciones() { return observaciones; }
     public void setObservaciones(String observaciones) { this.observaciones = observaciones; }
 }
-
-
 
