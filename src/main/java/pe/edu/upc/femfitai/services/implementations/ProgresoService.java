@@ -15,22 +15,34 @@ import static pe.edu.upc.femfitai.services.implementations.Validaciones.*;
 public class ProgresoService implements IProgresoService {
     private final ProgresoRepository repository;
     private final UsuarioActualService actual;
-    public ProgresoService(ProgresoRepository repository, UsuarioActualService actual) {
+    private final UsuariosRepository usuariosRepository;
+    public ProgresoService(ProgresoRepository repository,
+                           UsuarioActualService actual,
+                           UsuariosRepository usuariosRepository) {
         this.repository = repository;
         this.actual = actual;
+        this.usuariosRepository = usuariosRepository;
     }
+    @Override
     @Transactional
     public ProgresoDTO registrar(ProgresoDTO d) {
         exigir(d != null, "Los datos son obligatorios");
         Integer usuario = actual.id();
         if (d.idUsuario() != null) actual.verificar(d.idUsuario());
+
+        // Buscamos el objeto completo del usuario
+        var usuarioObj = usuariosRepository.findById(usuario)
+                .orElseThrow(() -> noEncontrado("Usuario"));
+
         decimal(d.pesoKg(), "PesoKg", true, false);
         decimal(d.medidaOpcional(), "MedidaOpcional", false, false);
         texto(d.notaPersonal(), 255, "NotaPersonal", false);
+
         LocalDate fecha = d.fecha() == null ? LocalDate.now() : d.fecha();
         exigir(!fecha.isAfter(LocalDate.now()), "Fecha no puede ser futura");
-        return dto(repository.save(new Progreso(usuario, fecha, d.pesoKg(), d.medidaOpcional(), d.notaPersonal())));
-    }
+
+        // Pasamos el objeto usuarioObj al constructor
+        return dto(repository.save(new Progreso(usuarioObj, fecha, d.pesoKg(), d.medidaOpcional(), d.notaPersonal()))); }
     @Transactional(readOnly = true)
     public Page<ProgresoDTO> listar(int pagina, int tamano) {
         return repository.findByIdUsuarioOrderByFechaDescIdProgresoDesc(actual.id(), paginar(pagina, tamano)).map(this::dto);
@@ -39,10 +51,10 @@ public class ProgresoService implements IProgresoService {
     public ProgresoDTO buscarPorId(Integer id) {
         positivo(id, "IdProgreso");
         var e = repository.findById(id).orElseThrow(() -> noEncontrado("Progreso"));
-        actual.verificar(e.getIdUsuario());
-        return dto(e);
+        actual.verificar(e.getUsuario().getIdUsuario());        return dto(e);
     }
     private ProgresoDTO dto(Progreso e) {
-        return new ProgresoDTO(e.getIdProgreso(), e.getIdUsuario(), e.getFecha(), e.getPesoKg(), e.getMedidaOpcional(), e.getNotaPersonal());
+        Integer idUsuario = (e.getUsuario() != null) ? e.getUsuario().getIdUsuario() : null;
+        return new ProgresoDTO(e.getIdProgreso(), idUsuario, e.getFecha(), e.getPesoKg(), e.getMedidaOpcional(), e.getNotaPersonal());
     }
 }
