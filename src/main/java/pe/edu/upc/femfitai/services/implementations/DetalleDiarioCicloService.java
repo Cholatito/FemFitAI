@@ -51,17 +51,31 @@ public class DetalleDiarioCicloService implements IDetalleDiarioCicloService {
 
     @Override
     public DetalleDiarioCicloDTO actualizar(Integer id, DetalleDiarioCicloDTO datos) {
-        return null;
+        DetalleDiarioCiclo detalle = obtenerDetalle(id);
+        Ciclos ciclo = validar(datos);
+
+        detalle.setCiclo(ciclo);
+        detalle.setFecha(datos.getFecha());
+        detalle.setFaseRegistrada(datos.getFaseRegistrada());
+        detalle.setNivelEnergia(datos.getNivelEnergia());
+        detalle.setObservaciones(datos.getObservaciones());
+        return convertirADTO(repository.save(detalle));
     }
 
     @Override
     public void eliminar(Integer id) {
-
+        repository.delete(obtenerDetalle(id));
     }
 
     @Override
     public List<DetalleDiarioCicloDTO> listarPorCiclo(Long idCiclo) {
-        return List.of();
+        if (!esInteger(idCiclo)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "idCiclo debe estar dentro del rango INTEGER de PostgreSQL");
+        }
+        return repository.findByCiclo_IdCicloOrderByFechaAsc(idCiclo).stream()
+                .map(this::convertirADTO)
+                .toList();
     }
 
     @Override
@@ -74,7 +88,7 @@ public class DetalleDiarioCicloService implements IDetalleDiarioCicloService {
 
         // Como getIdCiclo() ya devuelve un Long, lo pasamos directamente sin hacer .longValue()
         Ciclos ciclo = ciclos.findById(d.getIdCiclo())
-                .orElseThrow(() -> noEncontrado("Ciclo"));
+                .orElseThrow(() -> Validaciones.noEncontrado("Ciclo"));
         actual.verificar(ciclo.getUsuario().getIdUsuario());
         LocalDate fecha = d.getFecha() == null ? LocalDate.now() : d.getFecha();
         exigir(!fecha.isAfter(LocalDate.now()), "Fecha no puede ser futura");
@@ -87,7 +101,7 @@ public class DetalleDiarioCicloService implements IDetalleDiarioCicloService {
 
         // US10: bloquear la usuaria antes de consultar evita inserciones concurrentes
         Integer usuario = actual.id();
-        usuarios.bloquear(usuario).orElseThrow(() -> noEncontrado("Usuario"));
+        usuarios.bloquear(usuario).orElseThrow(() -> Validaciones.noEncontrado("Usuario"));
 
         DetalleDiarioCiclo e = repository.buscarPorUsuarioYFecha(usuario.longValue(), fecha)
                 .stream().findFirst().orElseGet(DetalleDiarioCiclo::new);
@@ -148,6 +162,16 @@ public class DetalleDiarioCicloService implements IDetalleDiarioCicloService {
         return ciclos.findById(datos.getIdCiclo())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "No existe un ciclo con ID " + datos.getIdCiclo()));
+    }
+
+    private boolean esInteger(Long valor) {
+        return valor != null && valor >= Integer.MIN_VALUE && valor <= Integer.MAX_VALUE;
+    }
+
+    private DetalleDiarioCicloDTO convertirADTO(DetalleDiarioCiclo detalle) {
+        return new DetalleDiarioCicloDTO(detalle.getIdDetalleDiarioCiclo(),
+                detalle.getCiclo().getIdCiclo(), detalle.getFecha(),
+                detalle.getFaseRegistrada(), detalle.getNivelEnergia(), detalle.getObservaciones());
     }
 
 
