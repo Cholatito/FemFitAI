@@ -42,16 +42,18 @@ public class ProgresoService implements IProgresoService {
         exigir(!fecha.isAfter(LocalDate.now()), "Fecha no puede ser futura");
 
         // Pasamos el objeto usuarioObj al constructor
-        return dto(repository.save(new Progreso(usuarioObj, fecha, d.pesoKg(), d.medidaOpcional(), d.notaPersonal()))); }
+        return dto(repository.save(new Progreso(usuarioObj, fecha, d.pesoKg(), d.medidaOpcional(), d.notaPersonal())));
+    }
     @Transactional(readOnly = true)
     public Page<ProgresoDTO> listar(int pagina, int tamano) {
-        return repository.findByIdUsuarioOrderByFechaDescIdProgresoDesc(actual.id(), paginar(pagina, tamano)).map(this::dto);
+        return repository.findByUsuario_IdUsuarioOrderByFechaDescIdProgresoDesc(actual.id(), paginar(pagina, tamano)).map(this::dto);
     }
     @Transactional(readOnly = true)
     public ProgresoDTO buscarPorId(Integer id) {
         positivo(id, "IdProgreso");
         var e = repository.findById(id).orElseThrow(() -> noEncontrado("Progreso"));
-        actual.verificar(e.getUsuario().getIdUsuario());        return dto(e);
+        actual.verificar(e.getUsuario().getIdUsuario());
+        return dto(e);
     }
     private ProgresoDTO dto(Progreso e) {
         Integer idUsuario = (e.getUsuario() != null) ? e.getUsuario().getIdUsuario() : null;

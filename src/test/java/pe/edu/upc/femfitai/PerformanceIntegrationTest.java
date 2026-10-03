@@ -55,7 +55,7 @@ class PerformanceIntegrationTest {
     @BeforeEach void prepare() throws Exception {
         String password = "OnlyForTests123!";
         owner = usuarios.saveAndFlush(new Usuarios("Perf", "Test", UUID.randomUUID() + "@example.test",
-                encoder.encode(password), "USUARIA", true, LocalDateTime.now()));
+                encoder.encode(password), "TESTER", true, LocalDateTime.now()));
         var login = request("POST", "/login", "{\"correo\":\"" + owner.getCorreo()
                 + "\",\"password\":\"" + password + "\"}", null);
         assertEquals(200, login.statusCode(), login.body());
@@ -73,7 +73,7 @@ class PerformanceIntegrationTest {
     }
 
     @Test void us11DailyDetailEndpointIsMeasuredWithOneRecord() throws Exception {
-        var cycle = ciclos.saveAndFlush(new Ciclos(owner.getIdUsuario().longValue(), LocalDate.now().minusDays(1), null));
+        var cycle = ciclos.saveAndFlush(new Ciclos(owner, LocalDate.now().minusDays(1), null));
         long started = System.nanoTime();
         var response = request("POST", "/detalle-diario", "{\"idCiclo\":" + cycle.getIdCiclo()
                 + ",\"nivelEnergia\":3,\"faseRegistrada\":\"Menstrual\"}", jwt);
@@ -90,7 +90,7 @@ class PerformanceIntegrationTest {
 
     @Test void us15HistoryEndpointIsMeasuredWithOneHundredRecords() throws Exception {
         for (int index = 0; index < 100; index++) {
-            progresos.save(new Progreso(owner.getIdUsuario(), LocalDate.now().minusDays(index),
+            progresos.save(new Progreso(owner, LocalDate.now().minusDays(index),
                     new BigDecimal("60.00"), null, "Nota"));
         }
         progresos.flush();
@@ -102,11 +102,11 @@ class PerformanceIntegrationTest {
     }
 
     @Test void us25RoutineJoinEndpointIsMeasuredWithTwentyFiveRelations() throws Exception {
-        var routine = rutinas.saveAndFlush(new Rutinas(owner.getIdUsuario(), "Rendimiento", "Objetivo", "Inicial",
+        var routine = rutinas.saveAndFlush(new Rutinas(owner, "Rendimiento", "Objetivo", "Inicial",
                 LocalDateTime.now(), true));
         for (int index = 0; index < 25; index++) {
             var exercise = ejercicios.saveAndFlush(new Ejercicios("Ejercicio perf " + index, "Piernas", "Fuerza", null));
-            rutinaEjercicios.save(new RutinaEjercicios(routine.getIdRutina(), exercise.getIdEjercicio(), 3, 10, 60));
+            rutinaEjercicios.save(new RutinaEjercicios(routine, exercise, 3, 10, 60));
         }
         rutinaEjercicios.flush();
         long started = System.nanoTime();
@@ -135,7 +135,7 @@ class PerformanceIntegrationTest {
     }
 
     @Test void us41ProfileEndpointIsMeasuredWithOneProfile() throws Exception {
-        perfiles.saveAndFlush(new PerfilEntrenamiento(owner.getIdUsuario(), "Inicial", "Entrenar", 3, 30,
+        perfiles.saveAndFlush(new PerfilEntrenamiento(owner, "Inicial", "Entrenar", 3, 30,
                 LocalDate.of(2000, 1, 1)));
         long started = System.nanoTime();
         var response = request("GET", "/perfiles", null, jwt);

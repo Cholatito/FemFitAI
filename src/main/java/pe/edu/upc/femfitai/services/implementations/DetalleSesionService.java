@@ -58,7 +58,7 @@ public class DetalleSesionService implements IDetalleSesionService {
     @Transactional
     public void eliminar(Integer id) {
         var e = propio(id);
-        conflicto(series.existsByIdDetalle(id), "El ejercicio tiene series registradas; elimine las series antes");
+        conflicto(series.existsByDetalle_IdDetalle(id), "El ejercicio tiene series registradas; elimine las series antes");
         repository.delete(e);
         repository.flush();
     }

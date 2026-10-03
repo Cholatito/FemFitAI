@@ -73,7 +73,7 @@ public class EjerciciosService implements IEjerciciosService {
     @Transactional
     public void eliminar(Integer id) {
         Ejercicios ejercicio = obtenerEjercicio(id);
-        Validaciones.conflicto(rutinas.existsByIdEjercicio(id) || detalles.existsByIdEjercicio(id),
+        Validaciones.conflicto(rutinas.existsByEjercicio_IdEjercicio(id) || detalles.existsByEjercicio_IdEjercicio(id),
                 "El ejercicio tiene registros relacionados");
         try {
             repository.delete(ejercicio);

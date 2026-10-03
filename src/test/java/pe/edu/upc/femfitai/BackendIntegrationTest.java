@@ -82,12 +82,12 @@ class BackendIntegrationTest {
     }
 
     private Rutinas rutina(Usuarios u) {
-        return rutinas.saveAndFlush(new Rutinas(u.getIdUsuario(), "Rutina", "Objetivo", "Inicial",
+        return rutinas.saveAndFlush(new Rutinas(u, "Rutina", "Objetivo", "Inicial",
                 LocalDateTime.now(), true));
     }
 
     private Ciclos ciclo(Usuarios u) {
-        return ciclos.saveAndFlush(new Ciclos(u.getIdUsuario().longValue(), LocalDate.now().minusDays(2), null));
+        return ciclos.saveAndFlush(new Ciclos(u, LocalDate.now().minusDays(2), null));
     }
 
     @Test void databaseIsExclusivelyInMemory() throws Exception {
@@ -102,17 +102,17 @@ class BackendIntegrationTest {
         JsonNode document = json.readTree(response.body());
         assertEquals("FemFitAI API", document.get("info").get("title").textValue());
         assertEquals("bearer", document.get("components").get("securitySchemes")
-            .get("bearerAuth").get("scheme").textValue());
+                .get("bearerAuth").get("scheme").textValue());
         assertEquals("JWT", document.get("components").get("securitySchemes")
-            .get("bearerAuth").get("bearerFormat").textValue());
+                .get("bearerAuth").get("bearerFormat").textValue());
     }
 
     @Test void userDetailsArePrivateAndAdministrativePermissionsRemainAvailable() throws Exception {
-        var owner = usuario("USUARIA");
+        var owner = usuario("TESTER");
         String path = "/usuarios/" + owner.getIdUsuario();
         assertEquals(401, request("GET", path, null, null).statusCode());
         assertEquals(200, request("GET", path, null, token(owner)).statusCode());
-        for (String role : List.of("USUARIA", "TESTER")) {
+        for (String role : List.of("TESTER")) {
             String jwt = token(usuario(role));
             var denied = request("GET", path, null, jwt);
             assertEquals(403, denied.statusCode(), denied.body());
@@ -123,26 +123,26 @@ class BackendIntegrationTest {
             assertEquals(403, request("PUT", path, "{}", jwt).statusCode());
             assertEquals(403, request("DELETE", path, null, jwt).statusCode());
         }
-        for (String role : List.of("ADMIN", "PROGRAMADOR")) {
+        for (String role : List.of("PROGRAMADOR")) {
             String jwt = token(usuario(role));
             assertEquals(200, request("GET", path, null, jwt).statusCode());
             assertEquals(200, request("GET", "/usuarios", null, jwt).statusCode());
             assertEquals(400, request("PUT", path, "{}", jwt).statusCode());
-            var disposable = usuario("USUARIA");
+            var disposable = usuario("TESTER");
             assertEquals(204, request("DELETE", "/usuarios/" + disposable.getIdUsuario(), null, jwt).statusCode());
             assertFalse(usuarios.existsById(disposable.getIdUsuario()));
         }
     }
 
     @Test void expiredAndTamperedJwtCannotAccessPrivateEndpoints() throws Exception {
-        var u = usuario("USUARIA");
+        var u = usuario("TESTER");
         String valid = token(u);
         int signature = valid.lastIndexOf('.') + 1;
         String tampered = valid.substring(0, signature) + (valid.charAt(signature) == 'A' ? 'B' : 'A')
                 + valid.substring(signature + 1);
         var claims = org.springframework.security.oauth2.jwt.JwtClaimsSet.builder()
                 .subject(u.getCorreo()).issuedAt(Instant.now().minusSeconds(7200))
-                .expiresAt(Instant.now().minusSeconds(3600)).claim("roles", "ROLE_USUARIA").build();
+                .expiresAt(Instant.now().minusSeconds(3600)).claim("roles", "ROLE_TESTER").build();
         var header = org.springframework.security.oauth2.jwt.JwsHeader
                 .with(org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS512).build();
         String expired = jwtEncoder.encode(org.springframework.security.oauth2.jwt.JwtEncoderParameters
@@ -176,7 +176,7 @@ class BackendIntegrationTest {
     }
 
     @Test void cycleEstimatedEndIsCalculatedAndRecalculatedAtTwentyEightCalendarDays() throws Exception {
-        var owner = usuario("USUARIA");
+        var owner = usuario("TESTER");
         String jwt = token(owner);
         LocalDate start = LocalDate.of(2025, 1, 31);
         String postBody = "{\"idUsuario\":" + owner.getIdUsuario() + ",\"fechaInicio\":\"" + start
@@ -199,9 +199,9 @@ class BackendIntegrationTest {
     }
 
     @Test void generationUsesTheProductionGeneratorAndHandlesOwnershipValidation() throws Exception {
-        var u = usuario("USUARIA");
+        var u = usuario("TESTER");
         String jwt = token(u);
-        perfiles.saveAndFlush(new PerfilEntrenamiento(u.getIdUsuario(), "Inicial", "Entrenar", 3, 30, LocalDate.of(2000, 1, 1)));
+        perfiles.saveAndFlush(new PerfilEntrenamiento(u, "Inicial", "Entrenar", 3, 30, LocalDate.of(2000, 1, 1)));
         long before = recomendaciones.count();
         assertEquals(401, request("POST", "/recomendaciones/generar", "{}", null).statusCode());
         var created = request("POST", "/recomendaciones/generar", "{}", jwt);
@@ -209,7 +209,7 @@ class BackendIntegrationTest {
         assertTrue(json.readTree(created.body()).get("contenido").asText().contains("perfil")
                 || json.readTree(created.body()).get("contenido").asText().contains("Plan recomendado"));
         assertEquals(before + 1, recomendaciones.count());
-        var foreignRoutine = rutina(usuario("USUARIA"));
+        var foreignRoutine = rutina(usuario("TESTER"));
         assertEquals(403, request("POST", "/recomendaciones/generar",
                 "{\"idRutina\":" + foreignRoutine.getIdRutina() + "}", jwt).statusCode());
         assertEquals(404, request("POST", "/recomendaciones/generar", "{\"idRutina\":2147483647}", jwt).statusCode());
@@ -221,7 +221,7 @@ class BackendIntegrationTest {
     }
 
     @Test void currentRpeBoundariesPersistOnPostAndPut() throws Exception {
-        var u = usuario("USUARIA");
+        var u = usuario("TESTER");
         var r = rutina(u);
         String jwt = token(u);
         for (int rpe : List.of(1, 10)) {
@@ -238,9 +238,9 @@ class BackendIntegrationTest {
     }
 
     @Test void cycleUpdateRejectsInvalidDatesAndMissingIdsWithoutChangingStoredCycle() throws Exception {
-        var owner = usuario("USUARIA");
+        var owner = usuario("TESTER");
         String jwt = token(owner);
-        var cycle = ciclos.saveAndFlush(new Ciclos(owner.getIdUsuario().longValue(), LocalDate.now().minusDays(2), null));
+        var cycle = ciclos.saveAndFlush(new Ciclos(owner, LocalDate.now().minusDays(2), null));
         long initialCount = ciclos.count();
         LocalDate initialStart = cycle.getFechaInicio();
         String path = "/ciclos/" + cycle.getIdCiclo();
@@ -278,8 +278,8 @@ class BackendIntegrationTest {
     }
 
     @Test void cyclesAndRoutinesCannotBeReadModifiedOrTransferredByAnotherAccount() throws Exception {
-        var owner = usuario("USUARIA");
-        var other = usuario("USUARIA");
+        var owner = usuario("TESTER");
+        var other = usuario("TESTER");
         String ownerJwt = token(owner);
         String otherJwt = token(other);
         var c = ciclo(owner);
@@ -300,18 +300,18 @@ class BackendIntegrationTest {
         assertEquals(403, request("DELETE", routinePath, null, otherJwt).statusCode());
         assertEquals(0, json.readTree(request("GET", "/ciclos", null, otherJwt).body()).size());
         assertEquals(0, json.readTree(request("GET", "/rutinas", null, otherJwt).body()).size());
-        assertEquals(owner.getIdUsuario().longValue(), ciclos.findById(c.getIdCiclo()).orElseThrow().getIdUsuario());
-        assertEquals(owner.getIdUsuario(), rutinas.findById(r.getIdRutina()).orElseThrow().getIdUsuario());
+        assertEquals(owner.getIdUsuario().longValue(), ciclos.findById(c.getIdCiclo()).orElseThrow().getUsuario().getIdUsuario().longValue());
+        assertEquals(owner.getIdUsuario(), rutinas.findById(r.getIdRutina()).orElseThrow().getUsuario().getIdUsuario());
         // Long se conserva en ciclos por compatibilidad, sin conversion que trunque IDs.
         assertEquals(404, request("DELETE", "/ciclos/4294967297", null, ownerJwt).statusCode());
         assertTrue(ciclos.existsById(c.getIdCiclo()));
     }
 
     @Test void sessionDetailsAndSeriesEnforceOwnerAndKeepReferencesOnPut() throws Exception {
-        var owner = usuario("USUARIA");
-        var other = usuario("USUARIA");
+        var owner = usuario("TESTER");
+        var other = usuario("TESTER");
         var r = rutina(owner);
-        var session = sesiones.saveAndFlush(new SesionesEntrenamiento(r.getIdRutina(), owner.getIdUsuario(),
+        var session = sesiones.saveAndFlush(new SesionesEntrenamiento(r, owner,
                 LocalDateTime.now(), 30, 3, 5, "Completada"));
         var e = ejercicios.saveAndFlush(new Ejercicios("Privacidad", null, null, null));
         String jwt = token(owner);
@@ -322,11 +322,11 @@ class BackendIntegrationTest {
         int detailId = json.readTree(detail.body()).get("idDetalle").asInt();
         long detailCount = detallesSesion.count();
         assertEquals(404, request("POST", "/detalle-sesion",
-            "{\"idSesion\":2147483647,\"idEjercicio\":" + e.getIdEjercicio() + "}", jwt).statusCode());
+                "{\"idSesion\":2147483647,\"idEjercicio\":" + e.getIdEjercicio() + "}", jwt).statusCode());
         assertEquals(404, request("POST", "/detalle-sesion",
-            "{\"idSesion\":" + session.getIdSesion() + ",\"idEjercicio\":2147483647}", jwt).statusCode());
+                "{\"idSesion\":" + session.getIdSesion() + ",\"idEjercicio\":2147483647}", jwt).statusCode());
         assertEquals(detailCount, detallesSesion.count());
-        assertEquals(e.getIdEjercicio(), detallesSesion.findById(detailId).orElseThrow().getIdEjercicio());
+        assertEquals(e.getIdEjercicio(), detallesSesion.findById(detailId).orElseThrow().getEjercicio().getIdEjercicio());
         String seriesBody = "{\"idDetalle\":" + detailId + ",\"numeroSerie\":1,\"repeticiones\":10,\"pesoKg\":20}";
         var createdSeries = request("POST", "/detalle-serie", seriesBody, jwt);
         assertEquals(201, createdSeries.statusCode(), createdSeries.body());
@@ -334,8 +334,8 @@ class BackendIntegrationTest {
         assertEquals(new BigDecimal("20.00"), series.findById(seriesId).orElseThrow().getPesoKg());
         assertEquals(10, series.findById(seriesId).orElseThrow().getRepeticiones());
         for (String invalid : List.of("{\"repeticiones\":0,\"pesoKg\":20}",
-            "{\"repeticiones\":-1,\"pesoKg\":20}",
-            "{\"repeticiones\":10,\"pesoKg\":-1}")) {
+                "{\"repeticiones\":-1,\"pesoKg\":20}",
+                "{\"repeticiones\":10,\"pesoKg\":-1}")) {
             assertEquals(400, request("PUT", "/detalle-serie/" + seriesId, invalid, jwt).statusCode());
             assertEquals(10, series.findById(seriesId).orElseThrow().getRepeticiones());
             assertEquals(new BigDecimal("20.00"), series.findById(seriesId).orElseThrow().getPesoKg());
@@ -346,7 +346,7 @@ class BackendIntegrationTest {
         assertEquals(403, request("GET", "/detalle-serie/detalle/" + detailId, null, otherJwt).statusCode());
         assertEquals(403, request("PUT", "/detalle-sesion/" + detailId, "{\"observacion\":\"Ajena\"}", otherJwt).statusCode());
         assertEquals(400, request("PUT", "/detalle-sesion/" + detailId,
-            "{\"observacion\":\"" + "O".repeat(256) + "\"}", jwt).statusCode());
+                "{\"observacion\":\"" + "O".repeat(256) + "\"}", jwt).statusCode());
         assertNull(detallesSesion.findById(detailId).orElseThrow().getObservacion());
         assertEquals(403, request("PUT", "/detalle-serie/" + seriesId, "{\"repeticiones\":12,\"pesoKg\":25}", otherJwt).statusCode());
         assertEquals(403, request("DELETE", "/detalle-sesion/" + detailId, null, otherJwt).statusCode());
@@ -356,10 +356,10 @@ class BackendIntegrationTest {
                 "{\"observacion\":\"" + "O".repeat(255) + "\",\"idSesion\":2147483647,\"idEjercicio\":2147483647}", jwt).statusCode());
         assertEquals(200, request("PUT", "/detalle-serie/" + seriesId,
                 "{\"repeticiones\":12,\"pesoKg\":25,\"idDetalle\":2147483647}", jwt).statusCode());
-        assertEquals(session.getIdSesion(), detallesSesion.findById(detailId).orElseThrow().getIdSesion());
+        assertEquals(session.getIdSesion(), detallesSesion.findById(detailId).orElseThrow().getSesion().getIdSesion());
         assertEquals("O".repeat(255), detallesSesion.findById(detailId).orElseThrow().getObservacion());
-        assertEquals(e.getIdEjercicio(), detallesSesion.findById(detailId).orElseThrow().getIdEjercicio());
-        assertEquals(detailId, series.findById(seriesId).orElseThrow().getIdDetalle());
+        assertEquals(e.getIdEjercicio(), detallesSesion.findById(detailId).orElseThrow().getEjercicio().getIdEjercicio());
+        assertEquals(detailId, series.findById(seriesId).orElseThrow().getDetalle().getIdDetalle());
         assertEquals(12, series.findById(seriesId).orElseThrow().getRepeticiones());
         var zeroWeight = request("POST", "/detalle-serie", "{\"idDetalle\":" + detailId
                 + ",\"numeroSerie\":2,\"repeticiones\":10,\"pesoKg\":0}", jwt);
@@ -378,8 +378,8 @@ class BackendIntegrationTest {
     }
 
     @Test void historyRoutineAndProfileEndpointsPersistAndRemainPrivateWithDiagnosticTimings() throws Exception {
-        var u = usuario("USUARIA");
-        var other = usuario("USUARIA");
+        var u = usuario("TESTER");
+        var other = usuario("TESTER");
         String jwt = token(u);
         String otherJwt = token(other);
         assertEquals(404, request("GET", "/perfiles", null, jwt).statusCode());
@@ -403,16 +403,16 @@ class BackendIntegrationTest {
         assertEquals(403, request("GET", "/rutina-ejercicios/rutina/" + r.getIdRutina(), null, otherJwt).statusCode());
         assertEquals(404, request("GET", "/perfiles", null, otherJwt).statusCode());
         assertEquals(404, request("PUT", "/perfiles", "{\"nivelEntrenamiento\":\"Inicial\",\"objetivoPrincipal\":\"Otro\"}", otherJwt).statusCode());
-        assertEquals("Entrenar", perfiles.findByIdUsuario(u.getIdUsuario()).orElseThrow().getObjetivoPrincipal());
+        assertEquals("Entrenar", perfiles.findByUsuario_IdUsuario(u.getIdUsuario()).orElseThrow().getObjetivoPrincipal());
     }
 
     @Test void detailSeriesValidateRepetitionsWeightAndExistingDetail() throws Exception {
-        var owner = usuario("USUARIA");
+        var owner = usuario("TESTER");
         var routine = rutina(owner);
-        var session = sesiones.saveAndFlush(new SesionesEntrenamiento(routine.getIdRutina(), owner.getIdUsuario(),
+        var session = sesiones.saveAndFlush(new SesionesEntrenamiento(routine, owner,
                 LocalDateTime.now(), 30, 3, 5, "Completada"));
         var exercise = ejercicios.saveAndFlush(new Ejercicios("Serie validacion", null, null, null));
-        var detail = detallesSesion.saveAndFlush(new DetalleSesion(session.getIdSesion(), exercise.getIdEjercicio(), null));
+        var detail = detallesSesion.saveAndFlush(new DetalleSesion(session, exercise, null));
         String jwt = token(owner);
         long before = series.count();
         for (String body : List.of(
@@ -429,15 +429,31 @@ class BackendIntegrationTest {
         }
     }
 
+    @Test void publicRegistrationCannotCreateProgramadorNorUnknownRoles() throws Exception {
+        String base = "{\"nombres\":\"Ana\",\"apellidos\":\"Test\",\"correo\":\"%s\",\"password\":\"" + PASSWORD
+                + "\",\"rol\":\"%s\"}";
+        String correo = UUID.randomUUID() + "@example.test";
+        // sin token no se puede crear un PROGRAMADOR
+        assertEquals(403, request("POST", "/usuarios", base.formatted(correo, "PROGRAMADOR"), null).statusCode());
+        assertTrue(usuarios.findByCorreo(correo).isEmpty());
+        // los roles que ya no existen se rechazan
+        assertEquals(400, request("POST", "/usuarios", base.formatted(correo, "ADMIN"), null).statusCode());
+        assertEquals(400, request("POST", "/usuarios", base.formatted(correo, "USUARIA"), null).statusCode());
+        // un PROGRAMADOR autenticado sí puede crear otro PROGRAMADOR
+        String jwt = token(usuario("PROGRAMADOR"));
+        assertEquals(201, request("POST", "/usuarios", base.formatted(correo, "PROGRAMADOR"), jwt).statusCode());
+        assertEquals("PROGRAMADOR", usuarios.findByCorreo(correo).orElseThrow().getRol());
+    }
+
     @Test void registrationCanLoginAndPasswordsAreHashed() throws Exception {
         String correo = UUID.randomUUID() + "@example.test";
         String body = "{\"nombres\":\"Ana\",\"apellidos\":\"Test\",\"correo\":\"" + correo
-                + "\",\"password\":\"" + PASSWORD + "\",\"rol\":\"ADMIN\"}";
+                + "\",\"password\":\"" + PASSWORD + "\"}";
         var registered = request("POST", "/usuarios", body, null);
         assertEquals(201, registered.statusCode(), registered.body());
         assertFalse(registered.body().contains(PASSWORD));
         Usuarios u = usuarios.findByCorreo(correo).orElseThrow();
-        assertEquals("USUARIA", u.getRol());
+        assertEquals("TESTER", u.getRol());
         assertNotEquals(PASSWORD, u.getPasswordHash());
         assertTrue(encoder.matches(PASSWORD, u.getPasswordHash()));
         String jwt = token(u);
@@ -464,15 +480,15 @@ class BackendIntegrationTest {
         String path = "/ejercicios/" + e.getIdEjercicio();
         String body = "{\"nombre\":\"Actualizado\"}";
         assertEquals(401, request("PUT", path, body, null).statusCode());
-        for (String rol : List.of("USUARIA", "TESTER")) {
+        for (String rol : List.of("TESTER")) {
             String jwt = token(usuario(rol));
             assertEquals(403, request("PUT", path, body, jwt).statusCode());
             assertEquals(403, request("DELETE", path, null, jwt).statusCode());
         }
-        for (String rol : List.of("ADMIN", "PROGRAMADOR")) {
+        for (String rol : List.of("PROGRAMADOR")) {
             assertEquals(200, request("PUT", path, body, token(usuario(rol))).statusCode());
         }
-        assertEquals(204, request("DELETE", path, null, token(usuario("ADMIN"))).statusCode());
+        assertEquals(204, request("DELETE", path, null, token(usuario("PROGRAMADOR"))).statusCode());
     }
 
     @Test void searchFiltersEscapesAndPaginates() throws Exception {
@@ -481,7 +497,7 @@ class BackendIntegrationTest {
         ejercicios.saveAndFlush(new Ejercicios(marker + " B", null, "fuerza", null));
         ejercicios.saveAndFlush(new Ejercicios(marker + " C", null, "Cardio", null));
         ejercicios.saveAndFlush(new Ejercicios(marker + " %_!", null, "Fuerza", null));
-        String jwt = token(usuario("USUARIA"));
+        String jwt = token(usuario("TESTER"));
         var response = request("GET", "/ejercicios/buscar?tipo=FUERZA&query=" + marker + "&tamano=1&pagina=1", null, jwt);
         assertEquals(200, response.statusCode(), response.body());
         JsonNode page = json.readTree(response.body());
@@ -501,7 +517,7 @@ class BackendIntegrationTest {
         ejercicios.saveAndFlush(new Ejercicios(marker + " Press", muscleGroup, "Fuerza", null));
         ejercicios.saveAndFlush(new Ejercicios(marker + " Fly", muscleGroup.toUpperCase(Locale.ROOT), "Fuerza", null));
         ejercicios.saveAndFlush(new Ejercicios(marker + " Row", "Espalda-" + UUID.randomUUID(), "Fuerza", null));
-        String jwt = token(usuario("USUARIA"));
+        String jwt = token(usuario("TESTER"));
 
         var keywordResponse = request("GET", "/ejercicios/buscar?query=" + marker, null, jwt);
         assertEquals(200, keywordResponse.statusCode(), keywordResponse.body());
@@ -522,36 +538,36 @@ class BackendIntegrationTest {
         }
     }
 
-        @Test void exerciseLimitsAndDescriptionPayloadsAreValidated() throws Exception {
-        String jwt = token(usuario("ADMIN"));
+    @Test void exerciseLimitsAndDescriptionPayloadsAreValidated() throws Exception {
+        String jwt = token(usuario("PROGRAMADOR"));
         String validName = "N".repeat(100);
         String validType = "T".repeat(50);
         String normalDescription = "Descripcion normal: movilidad < 3 y control de respiracion";
         var created = request("POST", "/ejercicios", "{\"nombre\":\"" + validName
-            + "\",\"tipo\":\"" + validType + "\",\"descripcion\":\""
-            + normalDescription + "\"}", jwt);
+                + "\",\"tipo\":\"" + validType + "\",\"descripcion\":\""
+                + normalDescription + "\"}", jwt);
         assertEquals(201, created.statusCode(), created.body());
         int id = json.readTree(created.body()).get("idEjercicio").asInt();
         assertEquals(org.springframework.web.util.HtmlUtils.htmlEscape(normalDescription),
                 ejercicios.findById(id).orElseThrow().getDescripcion());
         assertEquals(400, request("POST", "/ejercicios", "{\"nombre\":\""
-            + "N".repeat(101) + "\"}", jwt).statusCode());
+                + "N".repeat(101) + "\"}", jwt).statusCode());
         assertEquals(400, request("POST", "/ejercicios", "{\"nombre\":\"Nombre\",\"tipo\":\""
-            + "T".repeat(51) + "\"}", jwt).statusCode());
+                + "T".repeat(51) + "\"}", jwt).statusCode());
         for (String payload : List.of("<script>alert(1)</script>", "<img src=x onerror=alert(1)>",
-            "javascript:alert(1)")) {
+                "javascript:alert(1)")) {
             var invalid = request("POST", "/ejercicios", "{\"nombre\":\"Nombre\",\"descripcion\":\""
-                + payload + "\"}", jwt);
+                    + payload + "\"}", jwt);
             assertEquals(400, invalid.statusCode(), invalid.body());
             assertEquals(400, json.readTree(invalid.body()).get("status").asInt());
         }
         var invalidUpdate = request("PUT", "/ejercicios/" + id,
-            "{\"nombre\":\"Nombre\",\"descripcion\":\"<script>x</script>\"}", jwt);
+                "{\"nombre\":\"Nombre\",\"descripcion\":\"<script>x</script>\"}", jwt);
         assertEquals(400, invalidUpdate.statusCode(), invalidUpdate.body());
-        }
+    }
 
     @Test void dailyPhasesEnergyAndUpsertAreValidated() throws Exception {
-        var u = usuario("USUARIA");
+        var u = usuario("TESTER");
         var c = ciclo(u);
         String jwt = token(u);
         for (String phase : List.of("Menstrual", "Folicular", "Ovulatoria", "Lútea")) {
@@ -574,45 +590,45 @@ class BackendIntegrationTest {
         assertEquals(400, invalid.statusCode());
         assertEquals(400, json.readTree(invalid.body()).get("status").asInt());
         assertEquals(403, request("POST", "/detalle-diario", "{\"idCiclo\":" + c.getIdCiclo()
-                + ",\"nivelEnergia\":3}", token(usuario("USUARIA"))).statusCode());
+                + ",\"nivelEnergia\":3}", token(usuario("TESTER"))).statusCode());
     }
 
     @Test void concurrentDailyRequestsForDifferentCyclesDoNotDuplicateDate() throws Exception {
-        var u = usuario("USUARIA");
+        var u = usuario("TESTER");
         var c1 = ciclo(u);
         var c2 = ciclo(u);
         runConcurrently(u, () -> diarioService.guardar(new DetalleDiarioCicloDTO(null,
-                c1.getIdCiclo(), LocalDate.now(), "Menstrual", 3, "uno")),
+                        c1.getIdCiclo(), LocalDate.now(), "Menstrual", 3, "uno")),
                 () -> diarioService.guardar(new DetalleDiarioCicloDTO(null,
                         c2.getIdCiclo(), LocalDate.now(), "Folicular", 4, "dos")));
         assertEquals(1, diarios.buscarPorUsuarioYFecha(u.getIdUsuario().longValue(), LocalDate.now()).size());
     }
 
-        @Test void dailyObservationsAreOptionalAndRespectDatabaseLimit() throws Exception {
-        var u = usuario("USUARIA");
+    @Test void dailyObservationsAreOptionalAndRespectDatabaseLimit() throws Exception {
+        var u = usuario("TESTER");
         var c = ciclo(u);
         String jwt = token(u);
         var optional = request("POST", "/detalle-diario", "{\"idCiclo\":" + c.getIdCiclo()
-            + ",\"nivelEnergia\":3,\"observaciones\":null}", jwt);
+                + ",\"nivelEnergia\":3,\"observaciones\":null}", jwt);
         assertEquals(201, optional.statusCode(), optional.body());
         String observations = "O".repeat(255);
         var maximum = request("PUT", "/detalle-diario", "{\"idCiclo\":" + c.getIdCiclo()
-            + ",\"nivelEnergia\":3,\"observaciones\":\"" + observations + "\"}", jwt);
+                + ",\"nivelEnergia\":3,\"observaciones\":\"" + observations + "\"}", jwt);
         assertEquals(200, maximum.statusCode(), maximum.body());
         assertEquals(observations, diarios.buscarPorUsuarioYFecha(u.getIdUsuario().longValue(), LocalDate.now())
-            .get(0).getObservaciones());
+                .get(0).getObservaciones());
         var tooLong = request("PUT", "/detalle-diario", "{\"idCiclo\":" + c.getIdCiclo()
-            + ",\"nivelEnergia\":3,\"observaciones\":\"" + "O".repeat(256) + "\"}", jwt);
+                + ",\"nivelEnergia\":3,\"observaciones\":\"" + "O".repeat(256) + "\"}", jwt);
         assertEquals(400, tooLong.statusCode(), tooLong.body());
         assertEquals(400, json.readTree(tooLong.body()).get("status").asInt());
         assertTrue(tooLong.body().contains("Observaciones"));
         assertTrue(tooLong.body().contains("255"));
         assertEquals(observations, diarios.buscarPorUsuarioYFecha(u.getIdUsuario().longValue(), LocalDate.now())
-            .get(0).getObservaciones());
-        }
+                .get(0).getObservaciones());
+    }
 
     @Test void initialProfileRejectsInvalidFieldsWithoutPersistence() throws Exception {
-        var owner = usuario("USUARIA");
+        var owner = usuario("TESTER");
         String jwt = token(owner);
         var valid = new LinkedHashMap<String, Object>(Map.of(
                 "nivelEntrenamiento", "Inicial", "objetivoPrincipal", "Entrenar",
@@ -631,17 +647,17 @@ class BackendIntegrationTest {
                 var response = request("POST", "/perfiles", json.writeValueAsString(body), jwt);
                 assertEquals(400, response.statusCode(), response.body());
                 assertTrue(response.body().toLowerCase().contains(field.toLowerCase()), response.body());
-                assertTrue(perfiles.findByIdUsuario(owner.getIdUsuario()).isEmpty());
+                assertTrue(perfiles.findByUsuario_IdUsuario(owner.getIdUsuario()).isEmpty());
             }
         }
     }
 
     @Test void profileUpdatesPersistOnlyOwnFieldsAndRejectInvalidChanges() throws Exception {
-        var owner = usuario("USUARIA");
-        var other = usuario("USUARIA");
-        var original = perfiles.saveAndFlush(new PerfilEntrenamiento(owner.getIdUsuario(), "Inicial",
+        var owner = usuario("TESTER");
+        var other = usuario("TESTER");
+        var original = perfiles.saveAndFlush(new PerfilEntrenamiento(owner, "Inicial",
                 "Entrenar", 3, 30, LocalDate.of(2000, 1, 1)));
-        var foreign = perfiles.saveAndFlush(new PerfilEntrenamiento(other.getIdUsuario(), "Inicial",
+        var foreign = perfiles.saveAndFlush(new PerfilEntrenamiento(other, "Inicial",
                 "Ajeno", 2, 20, LocalDate.of(1999, 1, 1)));
         String jwt = token(owner);
         var profile = new LinkedHashMap<String, Object>(Map.of("nivelEntrenamiento", "Avanzado",
@@ -680,7 +696,7 @@ class BackendIntegrationTest {
     }
 
     @Test void progressOptionalFieldsPersistAndInvalidInputsNeverPersist() throws Exception {
-        var owner = usuario("USUARIA");
+        var owner = usuario("TESTER");
         String jwt = token(owner);
         long before = progresos.count();
         assertEquals(401, request("POST", "/progreso", "{\"pesoKg\":60}", null).statusCode());
@@ -709,7 +725,7 @@ class BackendIntegrationTest {
             var response = request("POST", "/progreso", json.writeValueAsString(body), jwt);
             assertEquals(201, response.statusCode(), response.body());
             var saved = progresos.findById(json.readTree(response.body()).get("idProgreso").asInt()).orElseThrow();
-            assertEquals(owner.getIdUsuario(), saved.getIdUsuario());
+            assertEquals(owner.getIdUsuario(), saved.getUsuario().getIdUsuario());
             assertEquals(new BigDecimal("60.25"), saved.getPesoKg());
             assertEquals(optional ? new BigDecimal("80.50") : null, saved.getMedidaOpcional());
             assertEquals(optional ? "N".repeat(255) : null, saved.getNotaPersonal());
@@ -718,8 +734,8 @@ class BackendIntegrationTest {
     }
 
     @Test void pastDailyUpsertIsPrivateAndEnergyErrorsAreDescriptive() throws Exception {
-        var owner = usuario("USUARIA");
-        var other = usuario("USUARIA");
+        var owner = usuario("TESTER");
+        var other = usuario("TESTER");
         var ownCycle = ciclo(owner);
         var otherCycle = ciclo(other);
         LocalDate date = LocalDate.now().minusDays(1);
@@ -750,7 +766,7 @@ class BackendIntegrationTest {
     }
 
     @Test void exerciseResponsesPreserveLongDescriptionAndAllCatalogFields() throws Exception {
-        String jwt = token(usuario("ADMIN"));
+        String jwt = token(usuario("PROGRAMADOR"));
         String name = "Long-" + UUID.randomUUID();
         String description = "Movimiento controlado. ".repeat(500);
         var response = request("POST", "/ejercicios", json.writeValueAsString(Map.of(
@@ -796,7 +812,7 @@ class BackendIntegrationTest {
     }
 
     @Test void profilesRemainUniqueUnderConcurrentCreation() throws Exception {
-        var u = usuario("USUARIA");
+        var u = usuario("TESTER");
         var successes = new java.util.concurrent.atomic.AtomicInteger();
         var conflicts = new java.util.concurrent.atomic.AtomicInteger();
         Runnable create = () -> {
@@ -811,14 +827,14 @@ class BackendIntegrationTest {
         runConcurrently(u, create, create);
         assertEquals(1, successes.get());
         assertEquals(1, conflicts.get());
-        assertTrue(perfiles.findByIdUsuario(u.getIdUsuario()).isPresent());
+        assertTrue(perfiles.findByUsuario_IdUsuario(u.getIdUsuario()).isPresent());
         assertThrows(DataIntegrityViolationException.class, () -> perfiles.saveAndFlush(
-                new PerfilEntrenamiento(u.getIdUsuario(), "Inicial", "Entrenar", 3, 30, LocalDate.of(2000, 1, 1))));
+                new PerfilEntrenamiento(u, "Inicial", "Entrenar", 3, 30, LocalDate.of(2000, 1, 1))));
     }
 
     @Test void sessionPostAndPutEnforceOwnershipAndSameValidation() throws Exception {
-        var owner = usuario("USUARIA");
-        var other = usuario("USUARIA");
+        var owner = usuario("TESTER");
+        var other = usuario("TESTER");
         var ownRoutine = rutina(owner);
         var otherRoutine = rutina(other);
         String jwt = token(owner);
@@ -827,7 +843,7 @@ class BackendIntegrationTest {
         assertEquals(201, created.statusCode(), created.body());
         int id = json.readTree(created.body()).get("idSesion").asInt();
         var original = sesiones.findById(id).orElseThrow();
-        assertEquals(owner.getIdUsuario(), original.getIdUsuario());
+        assertEquals(owner.getIdUsuario(), original.getUsuario().getIdUsuario());
         assertEquals(LocalDate.now(), original.getFecha().toLocalDate());
         assertEquals("Completada", original.getEstado());
         long sessionCount = sesiones.count();
@@ -872,24 +888,24 @@ class BackendIntegrationTest {
     }
 
     @Test void routineOwnershipCannotBeTakenThroughPut() throws Exception {
-        var owner = usuario("USUARIA");
-        var intruder = usuario("USUARIA");
+        var owner = usuario("TESTER");
+        var intruder = usuario("TESTER");
         var r = rutina(owner);
         String responseBody = "{\"idUsuario\":" + intruder.getIdUsuario() + ",\"nombre\":\"Robada\"}";
         assertEquals(403, request("PUT", "/rutinas/" + r.getIdRutina(), responseBody, token(intruder)).statusCode());
-        assertEquals(owner.getIdUsuario(), rutinas.findById(r.getIdRutina()).orElseThrow().getIdUsuario());
+        assertEquals(owner.getIdUsuario(), rutinas.findById(r.getIdRutina()).orElseThrow().getUsuario().getIdUsuario());
     }
 
     @Test void recommendationsArePrivateEmptyAndAcceptanceIsIdempotent() throws Exception {
-        var u = usuario("USUARIA");
+        var u = usuario("TESTER");
         String jwt = token(u);
         assertEquals(0, json.readTree(request("GET", "/recomendaciones", null, jwt).body()).get("totalElements").asInt());
         // Fixture persisted directly: this is not a pretend recommendation generator.
-        var e = recomendaciones.saveAndFlush(new RecomendacionesIA(u.getIdUsuario(), null, LocalDateTime.now(),
+        var e = recomendaciones.saveAndFlush(new RecomendacionesIA(u, null, LocalDateTime.now(),
                 "Fixture", "Contenido de prueba", "Motivo de prueba", false));
         LocalDateTime storedDate = recomendaciones.findById(e.getIdRecomendacion()).orElseThrow().getFecha();
         String path = "/recomendaciones/" + e.getIdRecomendacion();
-        var other = usuario("USUARIA");
+        var other = usuario("TESTER");
         String otherJwt = token(other);
         assertEquals(403, request("GET", path, null, otherJwt).statusCode());
         assertEquals(403, request("PATCH", path + "/aceptar", null, otherJwt).statusCode());
@@ -908,17 +924,17 @@ class BackendIntegrationTest {
     }
 
     @Test void administrativeDeletionStillRejectsReferencedExercises() throws Exception {
-        var u = usuario("USUARIA");
+        var u = usuario("TESTER");
         autenticar(u);
         var r = rutina(u);
         var e = ejercicios.saveAndFlush(new Ejercicios("Referenciado", null, null, null));
         rutinaEjerciciosService.registrar(new RutinaEjerciciosDTO(null, r.getIdRutina(), e.getIdEjercicio(), 3, 10, 30));
-        assertEquals(409, request("DELETE", "/ejercicios/" + e.getIdEjercicio(), null, token(usuario("ADMIN"))).statusCode());
+        assertEquals(409, request("DELETE", "/ejercicios/" + e.getIdEjercicio(), null, token(usuario("PROGRAMADOR"))).statusCode());
         assertTrue(ejercicios.existsById(e.getIdEjercicio()));
     }
 
     @Test void historyJoinAndProfileQueriesKeepTheirBehaviorAndReportTimings() {
-        var u = usuario("USUARIA");
+        var u = usuario("TESTER");
         autenticar(u);
         perfilService.registrar(new PerfilEntrenamientoDTO(null, null, "Inicial", "Entrenar", 3, 30, LocalDate.of(2000, 1, 1)));
         for (int i = 0; i < 25; i++) progresoService.registrar(new ProgresoDTO(null, null,

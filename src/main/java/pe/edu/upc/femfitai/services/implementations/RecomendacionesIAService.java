@@ -23,7 +23,7 @@ public class RecomendacionesIAService implements IRecomendacionesIAService {
     @Override
     @Transactional(readOnly = true)
     public Page<RecomendacionesIADTO> listar(int pagina, int tamano) {
-        return repository.findByIdUsuarioOrderByFechaDescIdRecomendacionDesc(actual.id(),
+        return repository.findByUsuario_IdUsuarioOrderByFechaDescIdRecomendacionDesc(actual.id(),
                 paginar(pagina, tamano)).map(this::dto);
     }
 

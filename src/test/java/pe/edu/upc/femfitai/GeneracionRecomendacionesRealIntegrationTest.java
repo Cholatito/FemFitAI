@@ -42,8 +42,8 @@ class GeneracionRecomendacionesRealIntegrationTest {
     @BeforeEach void prepare() throws Exception {
         String password = "OnlyForTests123!";
         owner = usuarios.saveAndFlush(new Usuarios("Test", "GeneracionReal", UUID.randomUUID() + "@example.test",
-                encoder.encode(password), "USUARIA", true, LocalDateTime.now()));
-        perfiles.saveAndFlush(new PerfilEntrenamiento(owner.getIdUsuario(), "Inicial", "Entrenar", 3, 30,
+                encoder.encode(password), "TESTER", true, LocalDateTime.now()));
+        perfiles.saveAndFlush(new PerfilEntrenamiento(owner, "Inicial", "Entrenar", 3, 30,
                 LocalDate.of(2000, 1, 1)));
         var login = request("POST", "/login", "{\"correo\":\"" + owner.getCorreo()
                 + "\",\"password\":\"" + password + "\"}", null);

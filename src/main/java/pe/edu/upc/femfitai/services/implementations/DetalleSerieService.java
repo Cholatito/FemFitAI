@@ -31,7 +31,7 @@ public class DetalleSerieService implements IDetalleSerieService {
         propietario(detalle);
         positivo(d.numeroSerie(), "NumeroSerie");
         validar(d.repeticiones(), d.pesoKg());
-        conflicto(repository.existsByIdDetalleAndNumeroSerie(d.idDetalle(), d.numeroSerie()), "NumeroSerie ya registrado para este ejercicio");
+        conflicto(repository.existsByDetalle_IdDetalleAndNumeroSerie(d.idDetalle(), d.numeroSerie()), "NumeroSerie ya registrado para este ejercicio");
         DetalleSerie nuevaSerie = new DetalleSerie(
                 detalle,
                 d.numeroSerie(),
@@ -44,7 +44,7 @@ public class DetalleSerieService implements IDetalleSerieService {
     @Transactional(readOnly = true)
     public List<DetalleSerieDTO> listarPorDetalle(Integer idDetalle) {
         detallePropio(idDetalle);
-        return repository.findByIdDetalleOrderByNumeroSerieAscIdSerieAsc(idDetalle).stream().map(this::dto).toList();
+        return repository.findByDetalle_IdDetalleOrderByNumeroSerieAscIdSerieAsc(idDetalle).stream().map(this::dto).toList();
     }
     @Transactional
     public DetalleSerieDTO actualizar(Integer id, ActualizarSerieDTO d) {

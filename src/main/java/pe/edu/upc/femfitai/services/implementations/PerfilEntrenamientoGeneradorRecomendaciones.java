@@ -17,7 +17,7 @@ public class PerfilEntrenamientoGeneradorRecomendaciones implements GeneradorRec
 
     @Override
     public Resultado generar(Integer idUsuario, Integer idRutina) {
-        PerfilEntrenamiento perfil = perfilEntrenamientoRepository.findByIdUsuario(idUsuario)
+        PerfilEntrenamiento perfil = perfilEntrenamientoRepository.findByUsuario_IdUsuario(idUsuario)
                 .orElseThrow(() -> new IllegalArgumentException("Completa tu perfil de entrenamiento antes de generar una recomendación"));
 
         List<String> faltantes = new ArrayList<>();

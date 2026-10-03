@@ -25,7 +25,8 @@ public class PerfilEntrenamientoService implements IPerfilEntrenamientoService {
         exigir(d != null, "Los datos son obligatorios");
         Integer usuario = actual.id();
         if (d.idUsuario() != null) actual.verificar(d.idUsuario());
-        var usuarioObj = usuarios.bloquear(usuario).orElseThrow(() -> noEncontrado("Usuario"));        conflicto(repository.findByIdUsuario(usuario).isPresent(), "La usuaria ya tiene un perfil");
+        var usuarioObj = usuarios.bloquear(usuario).orElseThrow(() -> noEncontrado("Usuario"));
+        conflicto(repository.findByUsuario_IdUsuario(usuario).isPresent(), "La usuaria ya tiene un perfil");
         validarPerfil(d.nivelEntrenamiento(), d.objetivoPrincipal());
         validarDisponibilidad(d.diasDisponibles(), d.tiempoDisponible());
         exigir(d.fechaNacimiento() != null && !d.fechaNacimiento().isAfter(LocalDate.now()), "FechaNacimiento obligatoria y no futura");
@@ -52,7 +53,7 @@ public class PerfilEntrenamientoService implements IPerfilEntrenamientoService {
         return dto(repository.save(e));
     }
     private PerfilEntrenamiento propio() {
-        return repository.findByIdUsuario(actual.id()).orElseThrow(() -> noEncontrado("Perfil"));
+        return repository.findByUsuario_IdUsuario(actual.id()).orElseThrow(() -> noEncontrado("Perfil"));
     }
     private void validarPerfil(String nivel, String objetivo) {
         texto(nivel, 50, "NivelEntrenamiento", true);
