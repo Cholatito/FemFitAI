@@ -13,21 +13,28 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.upc.femfitai.dtos.LoginRequestDTO;
 import pe.edu.upc.femfitai.dtos.LoginResponseDTO;
+import pe.edu.upc.femfitai.entities.Usuarios;
+import pe.edu.upc.femfitai.repositories.UsuariosRepository;
 import pe.edu.upc.femfitai.securities.JwtTokenService;
-
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 @RestController
 public class AuthController {
+
     private final AuthenticationManager authenticationManager;
     private final JwtTokenService jwtTokenService;
+    private final UsuariosRepository usuariosRepository;
 
     public AuthController(AuthenticationManager authenticationManager,
-                          JwtTokenService jwtTokenService) {
+                          JwtTokenService jwtTokenService,
+                          UsuariosRepository usuariosRepository) {
         this.authenticationManager = authenticationManager;
         this.jwtTokenService = jwtTokenService;
+        this.usuariosRepository = usuariosRepository;
     }
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponseDTO> login(@RequestBody LoginRequestDTO datos) {
+
         if (datos == null || datos.getCorreo() == null || datos.getCorreo().isBlank()
                 || datos.getPassword() == null || datos.getPassword().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -38,12 +45,25 @@ public class AuthController {
             Authentication autenticacion = authenticationManager.authenticate(
                     UsernamePasswordAuthenticationToken.unauthenticated(
                             datos.getCorreo(), datos.getPassword()));
+
             UserDetails usuario = (UserDetails) autenticacion.getPrincipal();
+
             String token = jwtTokenService.generateToken(usuario);
+
             String rol = usuario.getAuthorities().stream().findFirst()
                     .map(authority -> authority.getAuthority().replaceFirst("^ROLE_", ""))
                     .orElse("TESTER");
-            return ResponseEntity.ok(new LoginResponseDTO(token, "Bearer", rol));
+
+            Usuarios usuarioBD = usuariosRepository.findByCorreo(usuario.getUsername())
+                    .orElseThrow(() -> new UsernameNotFoundException(
+                            "Usuario no encontrado"));
+
+            Integer idUsuario = usuarioBD.getIdUsuario();
+
+            return ResponseEntity.ok(
+                    new LoginResponseDTO(token, "Bearer", rol, idUsuario)
+            );
+
         } catch (AuthenticationException ex) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
                     "Credenciales inválidas");

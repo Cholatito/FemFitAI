@@ -15,6 +15,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
+import java.util.List;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
@@ -47,7 +50,45 @@ public class SecurityConfig {
 
         return configuration.getAuthenticationManager();
     }
+    @Bean
+    public UrlBasedCorsConfigurationSource corsConfigurationSource() {
 
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        // Frontend Angular local
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:4200",
+                "http://127.0.0.1:4200"
+        ));
+
+        // Métodos HTTP permitidos
+        configuration.setAllowedMethods(List.of(
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "OPTIONS",
+                "PATCH"
+        ));
+
+        // Headers permitidos
+        configuration.setAllowedHeaders(List.of("*"));
+
+        // Headers que Angular puede leer de la respuesta
+        configuration.setExposedHeaders(List.of("Authorization"));
+
+        // Utilizamos JWT, no autenticación mediante cookies
+        configuration.setAllowCredentials(false);
+
+        configuration.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
+        source.registerCorsConfiguration("/**", configuration);
+
+        return source;
+    }
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http) throws Exception {
