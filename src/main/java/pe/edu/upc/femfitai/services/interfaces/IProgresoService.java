@@ -7,4 +7,6 @@ public interface IProgresoService {
     ProgresoDTO registrar(ProgresoDTO d);
     Page<ProgresoDTO> listar(int pagina, int tamano);
     ProgresoDTO buscarPorId(Integer id);
+    ProgresoDTO actualizar(Integer id, ProgresoDTO d);
+    void eliminar(Integer id);
 }

@@ -55,6 +55,37 @@ public class ProgresoService implements IProgresoService {
         actual.verificar(e.getUsuario().getIdUsuario());
         return dto(e);
     }
+    @Override
+    @Transactional
+    public ProgresoDTO actualizar(Integer id, ProgresoDTO d) {
+        exigir(d != null, "Los datos son obligatorios");
+        positivo(id, "IdProgreso");
+        var e = repository.findById(id).orElseThrow(() -> noEncontrado("Progreso"));
+        actual.verificar(e.getUsuario().getIdUsuario());
+        if (d.idUsuario() != null) actual.verificar(d.idUsuario());
+
+        decimal(d.pesoKg(), "PesoKg", true, false);
+        decimal(d.medidaOpcional(), "MedidaOpcional", false, false);
+        texto(d.notaPersonal(), 255, "NotaPersonal", false);
+
+        LocalDate fecha = d.fecha() == null ? e.getFecha() : d.fecha();
+        if (fecha != null) exigir(!fecha.isAfter(LocalDate.now()), "Fecha no puede ser futura");
+
+        e.setFecha(fecha);
+        e.setPesoKg(d.pesoKg());
+        e.setMedidaOpcional(d.medidaOpcional());
+        e.setNotaPersonal(d.notaPersonal());
+        return dto(repository.save(e));
+    }
+
+    @Override
+    @Transactional
+    public void eliminar(Integer id) {
+        positivo(id, "IdProgreso");
+        var e = repository.findById(id).orElseThrow(() -> noEncontrado("Progreso"));
+        actual.verificar(e.getUsuario().getIdUsuario());
+        repository.delete(e);
+    }
     private ProgresoDTO dto(Progreso e) {
         Integer idUsuario = (e.getUsuario() != null) ? e.getUsuario().getIdUsuario() : null;
         return new ProgresoDTO(e.getIdProgreso(), idUsuario, e.getFecha(), e.getPesoKg(), e.getMedidaOpcional(), e.getNotaPersonal());
