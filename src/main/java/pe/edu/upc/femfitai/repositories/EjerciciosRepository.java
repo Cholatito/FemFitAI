@@ -10,8 +10,8 @@ import pe.edu.upc.femfitai.entities.Ejercicios;
 public interface EjerciciosRepository extends JpaRepository<Ejercicios, Integer> {
     @Query("""
             select e from Ejercicios e
-            where (:tipo is null or lower(e.tipo) = lower(:tipo))
-              and (:query is null or lower(e.nombre) like lower(:query) escape '!')
+            where (:tipo = '' or lower(e.tipo) = lower(:tipo))
+            and lower(e.nombre) like lower(:query) escape '!'
             """)
     org.springframework.data.domain.Page<Ejercicios> buscar(
             @Param("tipo") String tipo, @Param("query") String query,
