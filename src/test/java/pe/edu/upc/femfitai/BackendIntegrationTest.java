@@ -130,7 +130,7 @@ class BackendIntegrationTest {
             assertEquals(400, request("PUT", path, "{}", jwt).statusCode());
             var disposable = usuario("TESTER");
             assertEquals(204, request("DELETE", "/usuarios/" + disposable.getIdUsuario(), null, jwt).statusCode());
-            assertFalse(usuarios.existsById(disposable.getIdUsuario()));
+            assertFalse(usuarios.findById(disposable.getIdUsuario()).orElseThrow().getEstado());
         }
     }
 
