@@ -128,9 +128,9 @@ public class EjerciciosService implements IEjerciciosService {
     public org.springframework.data.domain.Page<EjerciciosDTO> buscar(pe.edu.upc.femfitai.dtos.BusquedaEjerciciosDTO c) {
         Validaciones.exigir(c != null, "Criterios requeridos");
         var pagina = Validaciones.paginar(c.pagina(), c.tamano());
-        String tipo = c.tipo() == null || c.tipo().isBlank() ? null : c.tipo().trim();
-        String query = c.query() == null || c.query().isBlank() ? null
-                : "%" + c.query().trim().replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
+        String tipo = c.tipo() == null || c.tipo().isBlank() ? "" : c.tipo().trim();
+        String texto = c.query() == null ? "" : c.query().trim();
+        String query = "%" + texto.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
         return repository.buscar(tipo, query, org.springframework.data.domain.PageRequest.of(
                 pagina.getPageNumber(), pagina.getPageSize(),
                 org.springframework.data.domain.Sort.by("nombre", "idEjercicio"))).map(this::convertirADTO);
