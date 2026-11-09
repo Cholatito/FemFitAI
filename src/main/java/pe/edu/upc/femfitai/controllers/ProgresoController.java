@@ -41,4 +41,16 @@ public class ProgresoController {
     public ProgresoDTO buscarPorId(@PathVariable("id") Integer id) {
         return service.buscarPorId(id);
     }
+    @PutMapping("/{id}")
+    @Operation(summary = "US108 Actualizar un registro propio")
+    public ProgresoDTO actualizar(@PathVariable("id") Integer id, @RequestBody ProgresoDTO d) {
+        return service.actualizar(id, d);
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "US109 Eliminar un registro propio")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void eliminar(@PathVariable("id") Integer id) {
+        service.eliminar(id);
+    }
 }
