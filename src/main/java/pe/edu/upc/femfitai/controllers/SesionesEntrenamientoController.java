@@ -4,6 +4,7 @@ import java.net.URI;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import pe.edu.upc.femfitai.dtos.FinalizarSesionDTO;
 import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTO;
 import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTODetalle;
 import pe.edu.upc.femfitai.services.interfaces.ISesionesEntrenamientoService;
@@ -22,6 +23,20 @@ public class SesionesEntrenamientoController {
             @RequestBody SesionesEntrenamientoDTO datos) {
         SesionesEntrenamientoDTO sesion = service.registrar(datos);
         return ResponseEntity.created(URI.create("/sesiones/" + sesion.getIdSesion())).body(sesion);
+    }
+
+    @PostMapping("/rutina/{idRutina}/iniciar")
+    public ResponseEntity<SesionesEntrenamientoDTO> iniciarDesdeRutina(
+            @PathVariable("idRutina") Integer idRutina) {
+        SesionesEntrenamientoDTO sesion = service.iniciarDesdeRutina(idRutina);
+        return ResponseEntity.created(URI.create("/sesiones/" + sesion.getIdSesion())).body(sesion);
+    }
+
+    @PutMapping("/{id}/finalizar")
+    public SesionesEntrenamientoDTO finalizar(
+            @PathVariable("id") Integer id,
+            @RequestBody FinalizarSesionDTO datos) {
+        return service.finalizar(id, datos);
     }
 
     @GetMapping

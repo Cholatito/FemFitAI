@@ -9,6 +9,7 @@ import pe.edu.upc.femfitai.entities.DetalleSesion;
 
 public interface DetalleSesionRepository extends JpaRepository<DetalleSesion, Integer> {
     boolean existsByEjercicio_IdEjercicio(Integer idEjercicio);
+    boolean existsBySesion_IdSesionAndEjercicio_IdEjercicio(Integer idSesion, Integer idEjercicio);
     @Query("""
         select new pe.edu.upc.femfitai.dtos.DetalleSesionEjercicioDTO(
             d.idDetalle, d.sesion.idSesion, e.idEjercicio, e.nombre, e.grupoMuscular, d.observacion)

@@ -10,9 +10,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import pe.edu.upc.femfitai.dtos.FinalizarSesionDTO;
 import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTO;
 import pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTODetalle;
+import pe.edu.upc.femfitai.entities.DetalleSesion;
+import pe.edu.upc.femfitai.entities.RutinaEjercicios;
 import pe.edu.upc.femfitai.entities.SesionesEntrenamiento;
+import pe.edu.upc.femfitai.repositories.DetalleSesionRepository;
+import pe.edu.upc.femfitai.repositories.RutinaEjerciciosRepository;
 import pe.edu.upc.femfitai.repositories.SesionesEntrenamientoRepository;
 import pe.edu.upc.femfitai.repositories.RutinasRepository;
 import pe.edu.upc.femfitai.repositories.UsuariosRepository;
@@ -23,15 +28,21 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
     private final RutinasRepository rutinasRepository;
     private final UsuariosRepository usuariosRepository;
     private final UsuarioActualService actual;
+    private final RutinaEjerciciosRepository rutinaEjerciciosRepository;
+    private final DetalleSesionRepository detalleSesionRepository;
 
     public SesionesEntrenamientoService(SesionesEntrenamientoRepository repository,
                                         RutinasRepository rutinasRepository,
                                         UsuariosRepository usuariosRepository,
-                                        UsuarioActualService actual) {
+                                        UsuarioActualService actual,
+                                        RutinaEjerciciosRepository rutinaEjerciciosRepository,
+                                        DetalleSesionRepository detalleSesionRepository) {
         this.repository = repository;
         this.rutinasRepository = rutinasRepository;
         this.usuariosRepository = usuariosRepository;
         this.actual = actual;
+        this.rutinaEjerciciosRepository = rutinaEjerciciosRepository;
+        this.detalleSesionRepository = detalleSesionRepository;
     }
 
     @Override
@@ -47,6 +58,100 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
                 datos.getFecha() == null ? LocalDateTime.now() : datos.getFecha(),
                 datos.getDuracionMin(), datos.getNivelEnergia(),
                 datos.getEsfuerzoPercibido(), datos.getEstado());
+        return convertirADTO(repository.save(sesion));
+    }
+
+    @Override
+    @Transactional
+    public SesionesEntrenamientoDTO iniciarDesdeRutina(Integer idRutina) {
+        if (idRutina == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "IdRutina es obligatorio");
+        }
+        if (idRutina <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "IdRutina debe ser positivo");
+        }
+
+        Rutinas rutina = rutinasRepository.findById(idRutina)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "No existe una rutina con ID " + idRutina));
+        actual.verificar(rutina.getUsuario().getIdUsuario());
+
+        Integer idUsuario = actual.id();
+        boolean existeActiva = repository.existsByUsuario_IdUsuarioAndRutina_IdRutinaAndEstado(
+                idUsuario, idRutina, "EN_CURSO");
+        if (existeActiva) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Ya existe una sesión en curso para esta rutina");
+        }
+
+        Usuarios usuario = usuariosRepository.findById(idUsuario)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                        "Usuario autenticado no disponible"));
+
+        SesionesEntrenamiento nueva = new SesionesEntrenamiento(
+                rutina,
+                usuario,
+                LocalDateTime.now(),
+                null,
+                null,
+                null,
+                "EN_CURSO");
+        SesionesEntrenamiento guardada = repository.save(nueva);
+
+        List<RutinaEjercicios> ejerciciosRutina = rutinaEjerciciosRepository
+                .findByRutina_IdRutinaOrderByIdRutinaEjercicioAsc(idRutina);
+
+        for (RutinaEjercicios rutinaEjercicio : ejerciciosRutina) {
+            Integer idEjercicio = rutinaEjercicio.getEjercicio().getIdEjercicio();
+            if (detalleSesionRepository.existsBySesion_IdSesionAndEjercicio_IdEjercicio(
+                    guardada.getIdSesion(), idEjercicio)) {
+                continue;
+            }
+            detalleSesionRepository.save(new DetalleSesion(guardada, rutinaEjercicio.getEjercicio(), null));
+        }
+
+        return convertirADTO(guardada);
+    }
+
+    @Override
+    @Transactional
+    public SesionesEntrenamientoDTO finalizar(Integer id, FinalizarSesionDTO datos) {
+        if (id == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "IdSesion es obligatorio");
+        }
+        if (id <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "IdSesion debe ser positivo");
+        }
+        if (datos == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Los datos de finalizacion son obligatorios");
+        }
+
+        SesionesEntrenamiento sesion = obtenerSesion(id);
+        actual.verificar(sesion.getUsuario().getIdUsuario());
+
+        if (!"EN_CURSO".equalsIgnoreCase(sesion.getEstado())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "La sesion ya no se encuentra en curso");
+        }
+        if (datos.getDuracionMin() == null || datos.getDuracionMin() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "DuracionMin debe ser un valor positivo");
+        }
+        if (datos.getNivelEnergia() == null || datos.getNivelEnergia() < 1 || datos.getNivelEnergia() > 5) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "NivelEnergia debe estar entre 1 y 5");
+        }
+        if (datos.getEsfuerzoPercibido() == null || datos.getEsfuerzoPercibido() < 1 || datos.getEsfuerzoPercibido() > 10) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "EsfuerzoPercibido debe estar entre 1 y 10");
+        }
+
+        sesion.setDuracionMin(datos.getDuracionMin());
+        sesion.setNivelEnergia(datos.getNivelEnergia());
+        sesion.setEsfuerzoPercibido(datos.getEsfuerzoPercibido());
+        sesion.setEstado("FINALIZADA");
+
         return convertirADTO(repository.save(sesion));
     }
 
