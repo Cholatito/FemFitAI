@@ -1,6 +1,6 @@
 package pe.edu.upc.femfitai.controllers;
 
-
+import pe.edu.upc.femfitai.dtos.ChatRequestDTO;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pe.edu.upc.femfitai.services.implementations.GeminiService;
@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClientResponseException;
 import java.util.Map;
+
 
 @RestController
 @RequestMapping("/ia")
@@ -61,4 +62,39 @@ public class GeminiController {
                     ));
         }
     }
+
+
+    @PostMapping("/chat")
+    public ResponseEntity<?> chat(
+            @RequestBody ChatRequestDTO request) {
+
+        try {
+
+            String respuesta = geminiService.conversar(
+                    request.mensaje(),
+                    request.historial()
+            );
+
+            return ResponseEntity.ok(
+                    Map.of("respuesta", respuesta)
+            );
+
+        } catch (IllegalArgumentException e) {
+
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", e.getMessage()));
+
+        } catch (Exception e) {
+
+            log.error("Error en el chatbot FemFitAI", e);
+
+            return ResponseEntity.status(503)
+                    .body(Map.of(
+                            "message",
+                            "No fue posible generar la respuesta"
+                    ));
+        }
+    }
+
+
 }

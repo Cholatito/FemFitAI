@@ -1,4 +1,8 @@
 package pe.edu.upc.femfitai.dtos;
 
-public class ChatRequestDTO {
-}
+import java.util.List;
+
+public record ChatRequestDTO(
+        String mensaje,
+        List<MensajeChatDTO> historial
+) {}

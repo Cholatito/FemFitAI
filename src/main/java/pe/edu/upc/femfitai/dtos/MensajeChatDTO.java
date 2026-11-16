@@ -1,4 +1,6 @@
 package pe.edu.upc.femfitai.dtos;
 
-public class MensajeChatDTO {
-}
+public record MensajeChatDTO(
+        String role,
+        String content
+) {}
