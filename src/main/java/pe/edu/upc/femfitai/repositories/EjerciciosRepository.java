@@ -6,16 +6,25 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import pe.edu.upc.femfitai.dtos.EjerciciosUsuarioDTO;
 import pe.edu.upc.femfitai.entities.Ejercicios;
-
+import java.util.Optional;
 public interface EjerciciosRepository extends JpaRepository<Ejercicios, Integer> {
+
+    Optional<Ejercicios> findByWgerId(Integer wgerId);
+
     @Query("""
-            select e from Ejercicios e
-            where (:tipo is null or lower(e.tipo) = lower(:tipo))
-              and (:query is null or lower(e.nombre) like lower(:query) escape '!')
-            """)
+        select e from Ejercicios e
+        where (:tipo = '' or lower(e.tipo) = :tipo)
+          and (
+              :query = ''
+              or lower(e.nombre) like :query escape '!'
+              or lower(e.grupoMuscular) like :query escape '!'
+          )
+        """)
     org.springframework.data.domain.Page<Ejercicios> buscar(
-            @Param("tipo") String tipo, @Param("query") String query,
-            org.springframework.data.domain.Pageable pageable);
+            @Param("tipo") String tipo,
+            @Param("query") String query,
+            org.springframework.data.domain.Pageable pageable
+    );
     @Query("""
             select e from Ejercicios e
             where lower(e.grupoMuscular) = lower(:grupoMuscular)
@@ -37,4 +46,5 @@ public interface EjerciciosRepository extends JpaRepository<Ejercicios, Integer>
             order by r.idRutina, re.idRutinaEjercicio
             """)
     List<EjerciciosUsuarioDTO> listarPorUsuario(@Param("idUsuario") Integer idUsuario);
+
 }

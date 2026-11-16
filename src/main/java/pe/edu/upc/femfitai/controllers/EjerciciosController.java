@@ -2,16 +2,19 @@ package pe.edu.upc.femfitai.controllers;
 
 import java.net.URI;
 import java.util.List;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pe.edu.upc.femfitai.dtos.EjerciciosDTO;
 import pe.edu.upc.femfitai.dtos.EjerciciosUsuarioDTO;
 import pe.edu.upc.femfitai.services.interfaces.IEjerciciosService;
+import pe.edu.upc.femfitai.services.interfaces.IWgerSyncService;
 
 @RestController
 @RequestMapping("/ejercicios")
 public class EjerciciosController {
     private final IEjerciciosService service;
+    private final IWgerSyncService wgerSyncService;
 
     @GetMapping("/buscar")
     @io.swagger.v3.oas.annotations.Operation(summary = "US34 Buscar ejercicios por tipo y nombre con paginacion")
@@ -23,8 +26,17 @@ public class EjerciciosController {
         return service.buscar(new pe.edu.upc.femfitai.dtos.BusquedaEjerciciosDTO(tipo, query, pagina, tamano));
     }
 
-    public EjerciciosController(IEjerciciosService service) {
+    public EjerciciosController(IEjerciciosService service, IWgerSyncService wgerSyncService) {
         this.service = service;
+        this.wgerSyncService = wgerSyncService;
+    }
+
+    @PostMapping("/wger/sincronizar")
+    public ResponseEntity<IWgerSyncService.ResultadoSincronizacion> sincronizarWger() {
+        IWgerSyncService.ResultadoSincronizacion resumen = wgerSyncService.sincronizarTodos();
+        return resumen.completo()
+                ? ResponseEntity.ok(resumen)
+                : ResponseEntity.status(HttpStatus.PARTIAL_CONTENT).body(resumen);
     }
 
     @PostMapping

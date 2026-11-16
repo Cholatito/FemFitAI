@@ -1,5 +1,5 @@
 package pe.edu.upc.femfitai.services.implementations;
-
+import java.util.Locale;
 import java.util.List;
 import java.util.regex.Pattern;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -123,18 +123,46 @@ public class EjerciciosService implements IEjerciciosService {
         validarDescripcion(datos.getDescripcion());
     }
 
+
     @Override
     @Transactional(readOnly = true)
-    public org.springframework.data.domain.Page<EjerciciosDTO> buscar(pe.edu.upc.femfitai.dtos.BusquedaEjerciciosDTO c) {
+    public org.springframework.data.domain.Page<EjerciciosDTO> buscar(
+            pe.edu.upc.femfitai.dtos.BusquedaEjerciciosDTO c) {
+
+        // Validar que los criterios existan
         Validaciones.exigir(c != null, "Criterios requeridos");
+
+        // Obtener la paginación
         var pagina = Validaciones.paginar(c.pagina(), c.tamano());
-        String tipo = c.tipo() == null || c.tipo().isBlank() ? null : c.tipo().trim();
-        String query = c.query() == null || c.query().isBlank() ? null
-                : "%" + c.query().trim().replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
-        return repository.buscar(tipo, query, org.springframework.data.domain.PageRequest.of(
-                pagina.getPageNumber(), pagina.getPageSize(),
-                org.springframework.data.domain.Sort.by("nombre", "idEjercicio"))).map(this::convertirADTO);
+
+        // Normalizar el tipo
+        String tipo = c.tipo() == null || c.tipo().isBlank()
+                ? ""
+                : c.tipo().trim().toLowerCase(Locale.ROOT);
+
+        // Normalizar el texto de búsqueda
+        String query = c.query() == null || c.query().isBlank()
+                ? ""
+                : "%" + c.query().trim()
+                .toLowerCase(Locale.ROOT)
+                .replace("!", "!!")
+                .replace("%", "!%")
+                .replace("_", "!_") + "%";
+
+        // Consultar ejercicios
+        return repository.buscar(
+                tipo,
+                query,
+                org.springframework.data.domain.PageRequest.of(
+                        pagina.getPageNumber(),
+                        pagina.getPageSize(),
+                        org.springframework.data.domain.Sort.by(
+                                "nombre", "idEjercicio"
+                        )
+                )
+        ).map(this::convertirADTO);
     }
+
 
     private void validarDescripcion(String valor) {
         if (valor != null && CONTENIDO_PELIGROSO.matcher(valor).find()) {
