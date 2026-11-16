@@ -43,4 +43,11 @@ public class RutinaEjerciciosController {
     public List<RutinaEjercicioDetalleDTO> listarPorRutina(@PathVariable("idRutina") Integer idRutina) {
         return service.listarPorRutina(idRutina);
     }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Eliminar asignacion de ejercicio en rutina")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void eliminar(@PathVariable("id") Integer id) {
+        service.eliminar(id);
+    }
 }

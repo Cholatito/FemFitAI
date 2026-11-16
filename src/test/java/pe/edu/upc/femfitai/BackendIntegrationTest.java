@@ -42,6 +42,7 @@ class BackendIntegrationTest {
     @Autowired DetalleSesionRepository detallesSesion;
     @Autowired DetalleSerieRepository series;
     @Autowired ProgresoRepository progresos;
+    @Autowired RutinaEjerciciosRepository rutinaEjerciciosRepository;
     @Autowired IDetalleDiarioCicloService diarioService;
     @Autowired IPerfilEntrenamientoService perfilService;
     @Autowired IProgresoService progresoService;
@@ -375,6 +376,44 @@ class BackendIntegrationTest {
         assertFalse(series.existsById(seriesId));
         assertFalse(detallesSesion.existsById(detailId));
         assertEquals(404, request("DELETE", "/detalle-sesion/" + detailId, null, jwt).statusCode());
+    }
+
+    @Test void routineExerciseDeleteIsProtectedAndPersists() throws Exception {
+        var owner = usuario("TESTER");
+        var other = usuario("TESTER");
+        String ownerJwt = token(owner);
+        String otherJwt = token(other);
+
+        var r = rutina(owner);
+        var e = ejercicios.saveAndFlush(new Ejercicios("Press banca", "Pecho", "Fuerza", "Descripcion"));
+        var relation = request("POST", "/rutina-ejercicios", "{\"idRutina\":" + r.getIdRutina()
+                + ",\"idEjercicio\":" + e.getIdEjercicio() + ",\"series\":3,\"repeticiones\":10,\"descansoSeg\":60}", ownerJwt);
+        assertEquals(201, relation.statusCode(), relation.body());
+        int relationId = json.readTree(relation.body()).get("idRutinaEjercicio").asInt();
+
+        assertEquals(204, request("DELETE", "/rutina-ejercicios/" + relationId, null, ownerJwt).statusCode());
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated(owner.getCorreo(), null, List.of()));
+        assertFalse(rutinaEjerciciosService.listarPorRutina(r.getIdRutina()).stream()
+                .anyMatch(x -> x.idRutinaEjercicio().equals(relationId)));
+        assertFalse(rutinaEjerciciosRepository.existsById(relationId));
+
+        var r2 = rutina(owner);
+        var e2 = ejercicios.saveAndFlush(new Ejercicios("Sentadilla", "Piernas", "Fuerza", "Descripcion"));
+        var relation2 = request("POST", "/rutina-ejercicios", "{\"idRutina\":" + r2.getIdRutina()
+                + ",\"idEjercicio\":" + e2.getIdEjercicio() + ",\"series\":4,\"repeticiones\":8,\"descansoSeg\":60}", ownerJwt);
+        int relationId2 = json.readTree(relation2.body()).get("idRutinaEjercicio").asInt();
+
+        assertEquals(403, request("DELETE", "/rutina-ejercicios/" + relationId2, null, otherJwt).statusCode());
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated(owner.getCorreo(), null, List.of()));
+        assertTrue(rutinaEjerciciosRepository.existsById(relationId2));
+        assertEquals(404, request("DELETE", "/rutina-ejercicios/2147483647", null, ownerJwt).statusCode());
+
+        var routineOwned = rutinas.findById(r2.getIdRutina()).orElseThrow();
+        var exerciseOwned = ejercicios.findById(e2.getIdEjercicio()).orElseThrow();
+        assertEquals(owner.getIdUsuario(), routineOwned.getUsuario().getIdUsuario());
+        assertEquals(e2.getIdEjercicio(), exerciseOwned.getIdEjercicio());
     }
 
     @Test void historyRoutineAndProfileEndpointsPersistAndRemainPrivateWithDiagnosticTimings() throws Exception {

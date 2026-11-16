@@ -8,4 +8,5 @@ public interface IRutinaEjerciciosService {
     RutinaEjerciciosDTO registrar(RutinaEjerciciosDTO d);
     RutinaEjerciciosDTO actualizar(Integer id, RutinaEjerciciosDTO d);
     List<RutinaEjercicioDetalleDTO> listarPorRutina(Integer idRutina);
+    void eliminar(Integer id);
 }

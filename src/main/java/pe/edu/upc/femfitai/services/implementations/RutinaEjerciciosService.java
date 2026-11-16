@@ -2,8 +2,11 @@ package pe.edu.upc.femfitai.services.implementations;
 
 import java.util.*;
 
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import pe.edu.upc.femfitai.dtos.*;
 import pe.edu.upc.femfitai.entities.*;
 import pe.edu.upc.femfitai.repositories.*;
@@ -66,6 +69,22 @@ public class RutinaEjerciciosService implements IRutinaEjerciciosService {
     public List<RutinaEjercicioDetalleDTO> listarPorRutina(Integer idRutina) {
         rutinaPropia(idRutina);
         return repository.listarDetalle(idRutina);
+    }
+
+    @Transactional
+    public void eliminar(Integer id) {
+        positivo(id, "IdRutinaEjercicio");
+        var asignacion = repository.findById(id)
+                .orElseThrow(() -> noEncontrado("Asignacion de rutina"));
+
+        rutinaPropia(asignacion.getRutina().getIdRutina());
+
+        try {
+            repository.delete(asignacion);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "No se puede eliminar la asignacion porque hay datos relacionados");
+        }
     }
 
     private void rutinaPropia(Integer id) {
