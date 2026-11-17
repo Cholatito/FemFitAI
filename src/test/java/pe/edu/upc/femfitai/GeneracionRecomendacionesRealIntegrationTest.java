@@ -15,9 +15,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import pe.edu.upc.femfitai.entities.PerfilEntrenamiento;
+import pe.edu.upc.femfitai.entities.Rutinas;
 import pe.edu.upc.femfitai.entities.Usuarios;
 import pe.edu.upc.femfitai.repositories.PerfilEntrenamientoRepository;
 import pe.edu.upc.femfitai.repositories.RecomendacionesIARepository;
+import pe.edu.upc.femfitai.repositories.RutinasRepository;
 import pe.edu.upc.femfitai.repositories.UsuariosRepository;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -30,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 class GeneracionRecomendacionesRealIntegrationTest {
     @LocalServerPort int port;
     @Autowired UsuariosRepository usuarios;
+    @Autowired RutinasRepository rutinas;
     @Autowired PerfilEntrenamientoRepository perfiles;
     @Autowired RecomendacionesIARepository recomendaciones;
     @Autowired PasswordEncoder encoder;
@@ -37,12 +40,14 @@ class GeneracionRecomendacionesRealIntegrationTest {
     private final HttpClient client = HttpClient.newHttpClient();
     private final JsonMapper json = JsonMapper.builder().build();
     private Usuarios owner;
+    private Rutinas routine;
     private String jwt;
 
     @BeforeEach void prepare() throws Exception {
         String password = "OnlyForTests123!";
         owner = usuarios.saveAndFlush(new Usuarios("Test", "GeneracionReal", UUID.randomUUID() + "@example.test",
                 encoder.encode(password), "TESTER", true, LocalDateTime.now()));
+        routine = rutinas.saveAndFlush(new Rutinas(owner, "Prueba", "Prueba", "Inicial", LocalDateTime.now(), true));
         perfiles.saveAndFlush(new PerfilEntrenamiento(owner, "Inicial", "Entrenar", 3, 30,
                 LocalDate.of(2000, 1, 1)));
         var login = request("POST", "/login", "{\"correo\":\"" + owner.getCorreo()
@@ -64,7 +69,8 @@ class GeneracionRecomendacionesRealIntegrationTest {
     @Test void internalGeneratorCreatesAndPersistsProfileBasedRecommendation() throws Exception {
         long before = recomendaciones.count();
         long started = System.nanoTime();
-        var response = request("POST", "/recomendaciones/generar", "{}", jwt);
+        var response = request("POST", "/recomendaciones/generar",
+                "{\"idRutina\":" + routine.getIdRutina() + "}", jwt);
         long elapsedNanos = System.nanoTime() - started;
 
         assertEquals(201, response.statusCode(), response.body());
@@ -75,13 +81,14 @@ class GeneracionRecomendacionesRealIntegrationTest {
     }
 
     @Test void normalRecommendationGenerationCompletesWithinThreeSeconds() throws Exception {
-        // Warm up the HTTP and persistence path before timing the normal request.
-        var warmup = request("POST", "/recomendaciones/generar", "{}", jwt);
+        var warmup = request("POST", "/recomendaciones/generar",
+                "{\"idRutina\":" + routine.getIdRutina() + "}", jwt);
         assertEquals(201, warmup.statusCode(), warmup.body());
 
         long before = recomendaciones.count();
         long started = System.nanoTime();
-        var response = request("POST", "/recomendaciones/generar", "{}", jwt);
+        var response = request("POST", "/recomendaciones/generar",
+                "{\"idRutina\":" + routine.getIdRutina() + "}", jwt);
         long elapsedNanos = System.nanoTime() - started;
 
         assertEquals(201, response.statusCode(), response.body());

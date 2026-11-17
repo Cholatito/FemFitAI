@@ -202,10 +202,12 @@ class BackendIntegrationTest {
     @Test void generationUsesTheProductionGeneratorAndHandlesOwnershipValidation() throws Exception {
         var u = usuario("TESTER");
         String jwt = token(u);
+        var routine = rutina(u);
         perfiles.saveAndFlush(new PerfilEntrenamiento(u, "Inicial", "Entrenar", 3, 30, LocalDate.of(2000, 1, 1)));
         long before = recomendaciones.count();
         assertEquals(401, request("POST", "/recomendaciones/generar", "{}", null).statusCode());
-        var created = request("POST", "/recomendaciones/generar", "{}", jwt);
+        var created = request("POST", "/recomendaciones/generar",
+                "{\"idRutina\":" + routine.getIdRutina() + "}", jwt);
         assertEquals(201, created.statusCode(), created.body());
         assertTrue(json.readTree(created.body()).get("contenido").asText().contains("perfil")
                 || json.readTree(created.body()).get("contenido").asText().contains("Plan recomendado"));
@@ -218,7 +220,8 @@ class BackendIntegrationTest {
         assertEquals(400, request("POST", "/recomendaciones/generar", "{\"idRutina\":2147483648}", jwt).statusCode());
 
         perfiles.deleteAll();
-        assertEquals(400, request("POST", "/recomendaciones/generar", "{}", jwt).statusCode());
+        assertEquals(400, request("POST", "/recomendaciones/generar",
+                "{\"idRutina\":" + routine.getIdRutina() + "}", jwt).statusCode());
     }
 
     @Test void currentRpeBoundariesPersistOnPostAndPut() throws Exception {
@@ -314,23 +317,38 @@ class BackendIntegrationTest {
         var owner = usuario("TESTER");
         var other = usuario("TESTER");
         var r = rutina(owner);
-        var session = sesiones.saveAndFlush(new SesionesEntrenamiento(r, owner,
-                LocalDateTime.now(), 30, 3, 5, "Completada"));
-        var e = ejercicios.saveAndFlush(new Ejercicios("Privacidad", null, null, null));
+        var planned = ejercicios.saveAndFlush(new Ejercicios("Planificado", null, null, null));
+        var extra = ejercicios.saveAndFlush(new Ejercicios("Adicional", null, null, null));
         String jwt = token(owner);
         String otherJwt = token(other);
-        String detailBody = "{\"idSesion\":" + session.getIdSesion() + ",\"idEjercicio\":" + e.getIdEjercicio() + "}";
+        var relation = request("POST", "/rutina-ejercicios",
+                "{\"idRutina\":" + r.getIdRutina() + ",\"idEjercicio\":" + planned.getIdEjercicio()
+                        + ",\"series\":3,\"repeticiones\":10,\"descansoSeg\":60}", jwt);
+        assertEquals(201, relation.statusCode(), relation.body());
+        var started = request("POST", "/sesiones/rutina/" + r.getIdRutina() + "/iniciar", null, jwt);
+        assertEquals(201, started.statusCode(), started.body());
+        int sessionId = json.readTree(started.body()).get("idSesion").asInt();
+        DetalleSesion copied = detallesSesion.findAll().stream()
+                .filter(d -> d.getSesion().getIdSesion().equals(sessionId))
+                .filter(d -> d.getEjercicio().getIdEjercicio().equals(planned.getIdEjercicio()))
+                .findFirst().orElseThrow();
+        int detailId = copied.getIdDetalle();
+        assertEquals(1, detallesSesion.findAll().stream()
+                .filter(d -> d.getSesion().getIdSesion().equals(sessionId))
+                .filter(d -> d.getEjercicio().getIdEjercicio().equals(planned.getIdEjercicio()))
+                .count());
+        long detailCount = detallesSesion.count();
+        String detailBody = "{\"idSesion\":" + sessionId + ",\"idEjercicio\":" + extra.getIdEjercicio() + "}";
         var detail = request("POST", "/detalle-sesion", detailBody, jwt);
         assertEquals(201, detail.statusCode(), detail.body());
-        int detailId = json.readTree(detail.body()).get("idDetalle").asInt();
-        long detailCount = detallesSesion.count();
+        int extraDetailId = json.readTree(detail.body()).get("idDetalle").asInt();
+        assertEquals(detailCount + 1, detallesSesion.count());
         assertEquals(404, request("POST", "/detalle-sesion",
-                "{\"idSesion\":2147483647,\"idEjercicio\":" + e.getIdEjercicio() + "}", jwt).statusCode());
+                "{\"idSesion\":2147483647,\"idEjercicio\":" + extra.getIdEjercicio() + "}", jwt).statusCode());
         assertEquals(404, request("POST", "/detalle-sesion",
-                "{\"idSesion\":" + session.getIdSesion() + ",\"idEjercicio\":2147483647}", jwt).statusCode());
-        assertEquals(detailCount, detallesSesion.count());
-        assertEquals(e.getIdEjercicio(), detallesSesion.findById(detailId).orElseThrow().getEjercicio().getIdEjercicio());
-        String seriesBody = "{\"idDetalle\":" + detailId + ",\"numeroSerie\":1,\"repeticiones\":10,\"pesoKg\":20}";
+                "{\"idSesion\":" + sessionId + ",\"idEjercicio\":2147483647}", jwt).statusCode());
+        assertEquals(extra.getIdEjercicio(), detallesSesion.findById(extraDetailId).orElseThrow().getEjercicio().getIdEjercicio());
+        String seriesBody = "{\"idDetalle\":" + extraDetailId + ",\"numeroSerie\":1,\"repeticiones\":10,\"pesoKg\":20}";
         var createdSeries = request("POST", "/detalle-serie", seriesBody, jwt);
         assertEquals(201, createdSeries.statusCode(), createdSeries.body());
         int seriesId = json.readTree(createdSeries.body()).get("idSerie").asInt();
@@ -345,31 +363,31 @@ class BackendIntegrationTest {
         }
         assertEquals(403, request("POST", "/detalle-sesion", detailBody, otherJwt).statusCode());
         assertEquals(403, request("POST", "/detalle-serie", seriesBody, otherJwt).statusCode());
-        assertEquals(403, request("GET", "/detalle-sesion/sesion/" + session.getIdSesion(), null, otherJwt).statusCode());
-        assertEquals(403, request("GET", "/detalle-serie/detalle/" + detailId, null, otherJwt).statusCode());
-        assertEquals(403, request("PUT", "/detalle-sesion/" + detailId, "{\"observacion\":\"Ajena\"}", otherJwt).statusCode());
-        assertEquals(400, request("PUT", "/detalle-sesion/" + detailId,
+        assertEquals(403, request("GET", "/detalle-sesion/sesion/" + sessionId, null, otherJwt).statusCode());
+        assertEquals(403, request("GET", "/detalle-serie/detalle/" + extraDetailId, null, otherJwt).statusCode());
+        assertEquals(403, request("PUT", "/detalle-sesion/" + extraDetailId, "{\"observacion\":\"Ajena\"}", otherJwt).statusCode());
+        assertEquals(400, request("PUT", "/detalle-sesion/" + extraDetailId,
                 "{\"observacion\":\"" + "O".repeat(256) + "\"}", jwt).statusCode());
-        assertNull(detallesSesion.findById(detailId).orElseThrow().getObservacion());
+        assertNull(detallesSesion.findById(extraDetailId).orElseThrow().getObservacion());
         assertEquals(403, request("PUT", "/detalle-serie/" + seriesId, "{\"repeticiones\":12,\"pesoKg\":25}", otherJwt).statusCode());
-        assertEquals(403, request("DELETE", "/detalle-sesion/" + detailId, null, otherJwt).statusCode());
+        assertEquals(403, request("DELETE", "/detalle-sesion/" + extraDetailId, null, otherJwt).statusCode());
         assertEquals(403, request("DELETE", "/detalle-serie/" + seriesId, null, otherJwt).statusCode());
         assertEquals(404, request("DELETE", "/detalle-serie/2147483647", null, jwt).statusCode());
-        assertEquals(200, request("PUT", "/detalle-sesion/" + detailId,
+        assertEquals(200, request("PUT", "/detalle-sesion/" + extraDetailId,
                 "{\"observacion\":\"" + "O".repeat(255) + "\",\"idSesion\":2147483647,\"idEjercicio\":2147483647}", jwt).statusCode());
         assertEquals(200, request("PUT", "/detalle-serie/" + seriesId,
                 "{\"repeticiones\":12,\"pesoKg\":25,\"idDetalle\":2147483647}", jwt).statusCode());
-        assertEquals(session.getIdSesion(), detallesSesion.findById(detailId).orElseThrow().getSesion().getIdSesion());
-        assertEquals("O".repeat(255), detallesSesion.findById(detailId).orElseThrow().getObservacion());
-        assertEquals(e.getIdEjercicio(), detallesSesion.findById(detailId).orElseThrow().getEjercicio().getIdEjercicio());
-        assertEquals(detailId, series.findById(seriesId).orElseThrow().getDetalle().getIdDetalle());
+        assertEquals(sessionId, detallesSesion.findById(extraDetailId).orElseThrow().getSesion().getIdSesion());
+        assertEquals("O".repeat(255), detallesSesion.findById(extraDetailId).orElseThrow().getObservacion());
+        assertEquals(extra.getIdEjercicio(), detallesSesion.findById(extraDetailId).orElseThrow().getEjercicio().getIdEjercicio());
+        assertEquals(extraDetailId, series.findById(seriesId).orElseThrow().getDetalle().getIdDetalle());
         assertEquals(12, series.findById(seriesId).orElseThrow().getRepeticiones());
-        var zeroWeight = request("POST", "/detalle-serie", "{\"idDetalle\":" + detailId
+        var zeroWeight = request("POST", "/detalle-serie", "{\"idDetalle\":" + extraDetailId
                 + ",\"numeroSerie\":2,\"repeticiones\":10,\"pesoKg\":0}", jwt);
         assertEquals(201, zeroWeight.statusCode(), zeroWeight.body());
         int zeroWeightId = json.readTree(zeroWeight.body()).get("idSerie").asInt();
         assertEquals(0, series.findById(zeroWeightId).orElseThrow().getPesoKg().signum());
-        assertEquals(409, request("DELETE", "/detalle-sesion/" + detailId, null, jwt).statusCode());
+        assertEquals(409, request("DELETE", "/detalle-sesion/" + extraDetailId, null, jwt).statusCode());
         assertTrue(detallesSesion.existsById(detailId));
         assertTrue(series.existsById(seriesId));
         assertEquals(204, request("DELETE", "/detalle-serie/" + seriesId, null, jwt).statusCode());
@@ -592,11 +610,23 @@ class BackendIntegrationTest {
     @Test void detailSeriesValidateRepetitionsWeightAndExistingDetail() throws Exception {
         var owner = usuario("TESTER");
         var routine = rutina(owner);
-        var session = sesiones.saveAndFlush(new SesionesEntrenamiento(routine, owner,
-                LocalDateTime.now(), 30, 3, 5, "Completada"));
         var exercise = ejercicios.saveAndFlush(new Ejercicios("Serie validacion", null, null, null));
-        var detail = detallesSesion.saveAndFlush(new DetalleSesion(session, exercise, null));
         String jwt = token(owner);
+        var relation = request("POST", "/rutina-ejercicios",
+                "{\"idRutina\":" + routine.getIdRutina() + ",\"idEjercicio\":" + exercise.getIdEjercicio()
+                        + ",\"series\":3,\"repeticiones\":10,\"descansoSeg\":60}", jwt);
+        assertEquals(201, relation.statusCode(), relation.body());
+        var started = request("POST", "/sesiones/rutina/" + routine.getIdRutina() + "/iniciar", null, jwt);
+        assertEquals(201, started.statusCode(), started.body());
+        int sessionId = json.readTree(started.body()).get("idSesion").asInt();
+        DetalleSesion detail = detallesSesion.findAll().stream()
+                .filter(d -> d.getSesion().getIdSesion().equals(sessionId))
+                .filter(d -> d.getEjercicio().getIdEjercicio().equals(exercise.getIdEjercicio()))
+                .findFirst().orElseThrow();
+        assertEquals(1, detallesSesion.findAll().stream()
+                .filter(d -> d.getSesion().getIdSesion().equals(sessionId))
+                .filter(d -> d.getEjercicio().getIdEjercicio().equals(exercise.getIdEjercicio()))
+                .count());
         long before = series.count();
         for (String body : List.of(
                 "{\"idDetalle\":" + detail.getIdDetalle() + ",\"numeroSerie\":1,\"repeticiones\":0,\"pesoKg\":1}",
@@ -930,13 +960,17 @@ class BackendIntegrationTest {
         int id = json.readTree(created.body()).get("idDetalleDiarioCiclo").asInt();
         body.put("nivelEnergia", 5);
         assertEquals(200, request("PUT", "/detalle-diario", json.writeValueAsString(body), jwt).statusCode());
-        for (Object value : Arrays.asList(null, 0, 6, new BigDecimal("1.5"))) {
+        for (Object value : Arrays.asList(null, 0, 6)) {
             body.put("nivelEnergia", value);
             var invalid = request("PUT", "/detalle-diario", json.writeValueAsString(body), jwt);
             assertEquals(400, invalid.statusCode(), invalid.body());
-            if (!(value instanceof BigDecimal)) assertTrue(invalid.body().contains("NivelEnergia"));
+            assertTrue(invalid.body().contains("NivelEnergia"), invalid.body());
             assertEquals(5, diarios.findById(id).orElseThrow().getNivelEnergia());
         }
+        body.put("nivelEnergia", "1.5");
+        var invalidConversion = request("PUT", "/detalle-diario", json.writeValueAsString(body), jwt);
+        assertEquals(400, invalidConversion.statusCode(), invalidConversion.body());
+        assertEquals(5, diarios.findById(id).orElseThrow().getNivelEnergia());
         body.put("nivelEnergia", 1);
         body.put("idCiclo", otherCycle.getIdCiclo());
         assertEquals(200, request("PUT", "/detalle-diario", json.writeValueAsString(body), token(other)).statusCode());
@@ -1034,7 +1068,7 @@ class BackendIntegrationTest {
 
         assertEquals(403, request("GET", path, null, otherJwt).statusCode());
         assertEquals(403, request("GET", "/sesiones/usuario/" + owner.getIdUsuario(), null, otherJwt).statusCode());
-        assertEquals(403, request("PUT", path, "{\"duracionMin\":30,\"nivelEnergia\":3,\"esfuerzoPercibido\":5}", otherJwt).statusCode());
+        assertEquals(405, request("PUT", path, "{\"duracionMin\":30,\"nivelEnergia\":3,\"esfuerzoPercibido\":5}", otherJwt).statusCode());
         assertEquals(405, request("DELETE", path, null, otherJwt).statusCode());
         assertEquals(0, json.readTree(request("GET", "/sesiones", null, otherJwt).body()).size());
 
