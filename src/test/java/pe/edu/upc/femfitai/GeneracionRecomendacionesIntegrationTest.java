@@ -58,8 +58,8 @@ class GeneracionRecomendacionesIntegrationTest {
     @Test void adapterResultIsPersistedForTokenOwnerAndWorksWithExistingReadAndAccept() throws Exception {
         when(generador.generar(owner.getIdUsuario(), routine.getIdRutina()))
                 .thenReturn(new GeneradorRecomendaciones.Resultado("Fixture", "Contenido de prueba", "Motivo de prueba"));
-        var response = request("POST", "/recomendaciones/generar", "{\"idRutina\":" + routine.getIdRutina()
-                + ",\"idUsuario\":2147483647,\"aceptada\":true,\"fecha\":\"1999-01-01T00:00:00\"}");
+        var response = request("POST", "/recomendaciones/generar",
+                "{\"idRutina\":" + routine.getIdRutina() + "}");
         assertEquals(201, response.statusCode(), response.body());
         int id = json.readTree(response.body()).get("idRecomendacion").asInt();
         var saved = recomendaciones.findById(id).orElseThrow();
@@ -77,14 +77,14 @@ class GeneracionRecomendacionesIntegrationTest {
         verify(generador).generar(owner.getIdUsuario(), routine.getIdRutina());
     }
 
-    @Test void optionalRoutineDoesNotInventARequiredBusinessInput() throws Exception {
-        when(generador.generar(owner.getIdUsuario(), null))
-                .thenReturn(new GeneradorRecomendaciones.Resultado(null, "Fixture", "Fixture"));
+    @Test void missingRoutineIdIsRejectedWithoutInventingOptionalBusinessInput() throws Exception {
+        long before = recomendaciones.count();
         var response = request("POST", "/recomendaciones/generar", "{}");
-        assertEquals(201, response.statusCode(), response.body());
-        var saved = recomendaciones.findById(json.readTree(response.body()).get("idRecomendacion").asInt()).orElseThrow();
-        assertNull(saved.getRutina());
-        assertEquals(owner.getIdUsuario(), saved.getUsuario().getIdUsuario());
+        assertEquals(400, response.statusCode(), response.body());
+        assertEquals(400, json.readTree(response.body()).get("status").asInt());
+        assertTrue(json.readTree(response.body()).get("message").asText().contains("IdRutina"));
+        assertEquals(before, recomendaciones.count());
+        verifyNoInteractions(generador);
     }
 
     @Test void foreignRoutineNeverReachesGenerator() throws Exception {
@@ -99,11 +99,11 @@ class GeneracionRecomendacionesIntegrationTest {
     }
 
     @Test void insufficientDataReportedByFutureAdapterIsHandledWithoutSaving() throws Exception {
-        // La regla no se define aqui: el doble comprueba la propagacion del error.
-        when(generador.generar(owner.getIdUsuario(), null)).thenThrow(new ResponseStatusException(
+        when(generador.generar(owner.getIdUsuario(), routine.getIdRutina())).thenThrow(new ResponseStatusException(
                 HttpStatus.BAD_REQUEST, "Complete los datos requeridos por la regla del generador"));
         long before = recomendaciones.count();
-        var response = request("POST", "/recomendaciones/generar", "{}");
+        var response = request("POST", "/recomendaciones/generar",
+                "{\"idRutina\":" + routine.getIdRutina() + "}");
         assertEquals(400, response.statusCode());
         assertEquals(400, json.readTree(response.body()).get("status").asInt());
         assertTrue(json.readTree(response.body()).get("message").asText().contains("Complete"));
@@ -120,8 +120,9 @@ class GeneracionRecomendacionesIntegrationTest {
                 new GeneradorRecomendaciones.Resultado("Fixture", "Contenido", ""),
                 new GeneradorRecomendaciones.Resultado("Fixture", "Contenido", "   "),
                 new GeneradorRecomendaciones.Resultado("x".repeat(51), "Contenido", "Motivo"))) {
-            when(generador.generar(owner.getIdUsuario(), null)).thenReturn(result);
-            var response = request("POST", "/recomendaciones/generar", "{}");
+            when(generador.generar(owner.getIdUsuario(), routine.getIdRutina())).thenReturn(result);
+            var response = request("POST", "/recomendaciones/generar",
+                    "{\"idRutina\":" + routine.getIdRutina() + "}");
             assertEquals(502, response.statusCode(), response.body());
             assertEquals(502, json.readTree(response.body()).get("status").asInt());
             assertEquals(before, recomendaciones.count());
@@ -130,8 +131,10 @@ class GeneracionRecomendacionesIntegrationTest {
 
     @Test void unexpectedGenerationErrorUsesGlobalHandlerAndLeavesReadEndpointsAvailable() throws Exception {
         long before = recomendaciones.count();
-        when(generador.generar(owner.getIdUsuario(), null)).thenThrow(new IllegalStateException("internal-test-detail"));
-        var response = request("POST", "/recomendaciones/generar", "{}");
+        when(generador.generar(owner.getIdUsuario(), routine.getIdRutina()))
+                .thenThrow(new IllegalStateException("internal-test-detail"));
+        var response = request("POST", "/recomendaciones/generar",
+                "{\"idRutina\":" + routine.getIdRutina() + "}");
         assertEquals(500, response.statusCode());
         assertEquals(500, json.readTree(response.body()).get("status").asInt());
         assertFalse(response.body().contains("internal-test-detail"));

@@ -10,7 +10,8 @@ public class Ejercicios {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "\"IdEjercicio\"", nullable = false)
     private Integer idEjercicio;
-
+    @Column(name = "\"WgerId\"")
+    private Integer wgerId;
     @Column(name = "\"Nombre\"", nullable = false, length = 100)
     private String nombre;
 
@@ -70,5 +71,14 @@ public class Ejercicios {
 
     public void setDescripcion(String descripcion) {
         this.descripcion = descripcion;
+    }
+
+
+    public Integer getWgerId() {
+        return wgerId;
+    }
+
+    public void setWgerId(Integer wgerId) {
+        this.wgerId = wgerId;
     }
 }

@@ -10,6 +10,7 @@ import pe.edu.upc.femfitai.entities.SesionesEntrenamiento;
 
 public interface SesionesEntrenamientoRepository extends JpaRepository<SesionesEntrenamiento, Integer> {
     List<SesionesEntrenamiento> findByUsuario_IdUsuario(Integer idUsuario);
+    boolean existsByUsuario_IdUsuarioAndRutina_IdRutinaAndEstado(Integer idUsuario, Integer idRutina, String estado);
 
     @Query("""
             select new pe.edu.upc.femfitai.dtos.SesionesEntrenamientoDTODetalle(

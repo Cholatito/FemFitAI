@@ -2,7 +2,6 @@ package pe.edu.upc.femfitai.services.implementations;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import pe.edu.upc.femfitai.repositories.IUsersRepository;
 import pe.edu.upc.femfitai.repositories.UsuariosRepository;
 import pe.edu.upc.femfitai.services.interfaces.IUsuariosService;
 
@@ -18,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.edu.upc.femfitai.dtos.UsuariosDTO;
 import pe.edu.upc.femfitai.entities.Usuarios;
-import pe.edu.upc.femfitai.repositories.IUsersRepository;
 
 @Service
 public class UsuariosService implements IUsuariosService {
@@ -56,19 +54,29 @@ public class UsuariosService implements IUsuariosService {
     @Override
     @Transactional(readOnly = true)
     public List<UsuariosDTO> listar() {
+        if (!quienLlamaEsProgramador()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tienes permisos para listar usuarios");
+        }
         return repository.findAll().stream().map(this::convertirADTO).toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public UsuariosDTO buscarPorId(Integer id) {
-        return convertirADTO(obtenerUsuario(id));
+        Usuarios usuario = obtenerUsuario(id);
+        if (!quienLlamaEsProgramador()) {
+            actual.verificar(usuario.getIdUsuario());
+        }
+        return convertirADTO(usuario);
     }
 
     @Override
     @Transactional
     public UsuariosDTO actualizar(Integer id, UsuariosDTO datos) {
         Usuarios usuario = obtenerUsuario(id);
+        if (!quienLlamaEsProgramador()) {
+            actual.verificar(usuario.getIdUsuario());
+        }
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
@@ -93,6 +101,9 @@ public class UsuariosService implements IUsuariosService {
     @Transactional
     public void eliminar(Integer id) {
         Usuarios usuario = obtenerUsuario(id);
+        if (!quienLlamaEsProgramador()) {
+            actual.verificar(usuario.getIdUsuario());
+        }
         usuario.setEstado(false);
         repository.save(usuario);
     }
@@ -114,6 +125,10 @@ public class UsuariosService implements IUsuariosService {
     private void validar(String nombres, String apellidos, String correo, String passwordHash) {
         validar(nombres, apellidos, correo);
         obligatorio(passwordHash, "PasswordHash");
+        if (!passwordHash.matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La contraseña debe tener al menos 8 caracteres, incluir mayúsculas, minúsculas y números");
+        }
     }
 
     private void obligatorio(String valor, String campo) {

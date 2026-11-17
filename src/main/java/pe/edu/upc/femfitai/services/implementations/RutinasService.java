@@ -19,10 +19,12 @@ import pe.edu.upc.femfitai.repositories.UsuariosRepository;
 public class RutinasService implements IRutinasService {
     private final RutinasRepository repository;
     private final UsuariosRepository usuariosRepository;
+    private final UsuarioActualService actual;
 
-    public RutinasService(RutinasRepository repository, UsuariosRepository usuariosRepository) {
+    public RutinasService(RutinasRepository repository, UsuariosRepository usuariosRepository, UsuarioActualService actual) {
         this.repository = repository;
         this.usuariosRepository = usuariosRepository;
+        this.actual = actual;
     }
 
     @Override
@@ -31,8 +33,8 @@ public class RutinasService implements IRutinasService {
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
-        // Validamos y obtenemos el objeto Usuarios completo
         Usuarios usuario = validar(datos.getIdUsuario(), datos.getNombre());
+        actual.verificar(usuario.getIdUsuario());
 
         Rutinas rutina = new Rutinas();
         rutina.setUsuario(usuario);
@@ -48,23 +50,27 @@ public class RutinasService implements IRutinasService {
     @Override
     @Transactional(readOnly = true)
     public List<RutinasDTO> listar() {
-        return repository.findAll().stream().map(this::convertirADTO).toList();
+        return repository.findByUsuario_IdUsuario(actual.id()).stream().map(this::convertirADTO).toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public RutinasDTO buscarPorId(Integer id) {
-        return convertirADTO(obtenerRutina(id));
+        Rutinas rutina = obtenerRutina(id);
+        actual.verificar(rutina.getUsuario().getIdUsuario());
+        return convertirADTO(rutina);
     }
 
     @Override
     @Transactional
     public RutinasDTO actualizar(Integer id, RutinasDTO datos) {
         Rutinas rutina = obtenerRutina(id);
+        actual.verificar(rutina.getUsuario().getIdUsuario());
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
         Usuarios usuario = validar(datos.getIdUsuario(), datos.getNombre());
+        actual.verificar(usuario.getIdUsuario());
 
         rutina.setUsuario(usuario);
         rutina.setNombre(datos.getNombre());
@@ -79,12 +85,15 @@ public class RutinasService implements IRutinasService {
     @Override
     @Transactional
     public void eliminar(Integer id) {
-        repository.delete(obtenerRutina(id));
+        Rutinas rutina = obtenerRutina(id);
+        actual.verificar(rutina.getUsuario().getIdUsuario());
+        repository.delete(rutina);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<RutinasDTO> listarPorUsuario(Integer idUsuario) {
+        actual.verificar(idUsuario);
         return repository.findByUsuario_IdUsuario(idUsuario).stream().map(this::convertirADTO).toList();
     }
 
@@ -94,7 +103,8 @@ public class RutinasService implements IRutinasService {
         if (id == null) {
             throw noEncontrada(id);
         }
-        obtenerRutina(id);
+        Rutinas rutina = obtenerRutina(id);
+        actual.verificar(rutina.getUsuario().getIdUsuario());
         return repository.buscarDetallePorId(id).orElseThrow(() -> noEncontrada(id));
     }
 

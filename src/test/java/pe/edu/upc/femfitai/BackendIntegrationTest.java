@@ -42,6 +42,7 @@ class BackendIntegrationTest {
     @Autowired DetalleSesionRepository detallesSesion;
     @Autowired DetalleSerieRepository series;
     @Autowired ProgresoRepository progresos;
+    @Autowired RutinaEjerciciosRepository rutinaEjerciciosRepository;
     @Autowired IDetalleDiarioCicloService diarioService;
     @Autowired IPerfilEntrenamientoService perfilService;
     @Autowired IProgresoService progresoService;
@@ -201,10 +202,12 @@ class BackendIntegrationTest {
     @Test void generationUsesTheProductionGeneratorAndHandlesOwnershipValidation() throws Exception {
         var u = usuario("TESTER");
         String jwt = token(u);
+        var routine = rutina(u);
         perfiles.saveAndFlush(new PerfilEntrenamiento(u, "Inicial", "Entrenar", 3, 30, LocalDate.of(2000, 1, 1)));
         long before = recomendaciones.count();
         assertEquals(401, request("POST", "/recomendaciones/generar", "{}", null).statusCode());
-        var created = request("POST", "/recomendaciones/generar", "{}", jwt);
+        var created = request("POST", "/recomendaciones/generar",
+                "{\"idRutina\":" + routine.getIdRutina() + "}", jwt);
         assertEquals(201, created.statusCode(), created.body());
         assertTrue(json.readTree(created.body()).get("contenido").asText().contains("perfil")
                 || json.readTree(created.body()).get("contenido").asText().contains("Plan recomendado"));
@@ -217,24 +220,27 @@ class BackendIntegrationTest {
         assertEquals(400, request("POST", "/recomendaciones/generar", "{\"idRutina\":2147483648}", jwt).statusCode());
 
         perfiles.deleteAll();
-        assertEquals(400, request("POST", "/recomendaciones/generar", "{}", jwt).statusCode());
+        assertEquals(400, request("POST", "/recomendaciones/generar",
+                "{\"idRutina\":" + routine.getIdRutina() + "}", jwt).statusCode());
     }
 
     @Test void currentRpeBoundariesPersistOnPostAndPut() throws Exception {
         var u = usuario("TESTER");
         var r = rutina(u);
         String jwt = token(u);
-        for (int rpe : List.of(1, 10)) {
-            String body = "{\"idRutina\":" + r.getIdRutina() + ",\"duracionMin\":1,\"nivelEnergia\":3,\"esfuerzoPercibido\":" + rpe + "}";
-            var created = request("POST", "/sesiones", body, jwt);
-            assertEquals(201, created.statusCode(), created.body());
-            int id = json.readTree(created.body()).get("idSesion").asInt();
-            assertEquals(rpe, sesiones.findById(id).orElseThrow().getEsfuerzoPercibido());
-            assertEquals(200, request("PUT", "/sesiones/" + id, body, jwt).statusCode());
-            var fetched = request("GET", "/sesiones/" + id, null, jwt);
-            assertEquals(200, fetched.statusCode());
-            assertEquals(rpe, json.readTree(fetched.body()).get("esfuerzoPercibido").asInt());
-        }
+        String body = "{\"idRutina\":" + r.getIdRutina() + ",\"duracionMin\":1,\"nivelEnergia\":3,\"esfuerzoPercibido\":10}";
+        assertEquals(405, request("POST", "/sesiones", body, jwt).statusCode());
+        assertEquals(0, sesiones.count());
+        var created = request("POST", "/sesiones/rutina/" + r.getIdRutina() + "/iniciar", null, jwt);
+        assertEquals(201, created.statusCode(), created.body());
+        int id = json.readTree(created.body()).get("idSesion").asInt();
+        assertNull(sesiones.findById(id).orElseThrow().getDuracionMin());
+        assertNull(sesiones.findById(id).orElseThrow().getNivelEnergia());
+        assertNull(sesiones.findById(id).orElseThrow().getEsfuerzoPercibido());
+        assertEquals(405, request("PUT", "/sesiones/" + id, body, jwt).statusCode());
+        var fetched = request("GET", "/sesiones/" + id, null, jwt);
+        assertEquals(200, fetched.statusCode());
+        assertEquals("EN_CURSO", json.readTree(fetched.body()).get("estado").asText());
     }
 
     @Test void cycleUpdateRejectsInvalidDatesAndMissingIdsWithoutChangingStoredCycle() throws Exception {
@@ -311,23 +317,38 @@ class BackendIntegrationTest {
         var owner = usuario("TESTER");
         var other = usuario("TESTER");
         var r = rutina(owner);
-        var session = sesiones.saveAndFlush(new SesionesEntrenamiento(r, owner,
-                LocalDateTime.now(), 30, 3, 5, "Completada"));
-        var e = ejercicios.saveAndFlush(new Ejercicios("Privacidad", null, null, null));
+        var planned = ejercicios.saveAndFlush(new Ejercicios("Planificado", null, null, null));
+        var extra = ejercicios.saveAndFlush(new Ejercicios("Adicional", null, null, null));
         String jwt = token(owner);
         String otherJwt = token(other);
-        String detailBody = "{\"idSesion\":" + session.getIdSesion() + ",\"idEjercicio\":" + e.getIdEjercicio() + "}";
+        var relation = request("POST", "/rutina-ejercicios",
+                "{\"idRutina\":" + r.getIdRutina() + ",\"idEjercicio\":" + planned.getIdEjercicio()
+                        + ",\"series\":3,\"repeticiones\":10,\"descansoSeg\":60}", jwt);
+        assertEquals(201, relation.statusCode(), relation.body());
+        var started = request("POST", "/sesiones/rutina/" + r.getIdRutina() + "/iniciar", null, jwt);
+        assertEquals(201, started.statusCode(), started.body());
+        int sessionId = json.readTree(started.body()).get("idSesion").asInt();
+        DetalleSesion copied = detallesSesion.findAll().stream()
+                .filter(d -> d.getSesion().getIdSesion().equals(sessionId))
+                .filter(d -> d.getEjercicio().getIdEjercicio().equals(planned.getIdEjercicio()))
+                .findFirst().orElseThrow();
+        int detailId = copied.getIdDetalle();
+        assertEquals(1, detallesSesion.findAll().stream()
+                .filter(d -> d.getSesion().getIdSesion().equals(sessionId))
+                .filter(d -> d.getEjercicio().getIdEjercicio().equals(planned.getIdEjercicio()))
+                .count());
+        long detailCount = detallesSesion.count();
+        String detailBody = "{\"idSesion\":" + sessionId + ",\"idEjercicio\":" + extra.getIdEjercicio() + "}";
         var detail = request("POST", "/detalle-sesion", detailBody, jwt);
         assertEquals(201, detail.statusCode(), detail.body());
-        int detailId = json.readTree(detail.body()).get("idDetalle").asInt();
-        long detailCount = detallesSesion.count();
+        int extraDetailId = json.readTree(detail.body()).get("idDetalle").asInt();
+        assertEquals(detailCount + 1, detallesSesion.count());
         assertEquals(404, request("POST", "/detalle-sesion",
-                "{\"idSesion\":2147483647,\"idEjercicio\":" + e.getIdEjercicio() + "}", jwt).statusCode());
+                "{\"idSesion\":2147483647,\"idEjercicio\":" + extra.getIdEjercicio() + "}", jwt).statusCode());
         assertEquals(404, request("POST", "/detalle-sesion",
-                "{\"idSesion\":" + session.getIdSesion() + ",\"idEjercicio\":2147483647}", jwt).statusCode());
-        assertEquals(detailCount, detallesSesion.count());
-        assertEquals(e.getIdEjercicio(), detallesSesion.findById(detailId).orElseThrow().getEjercicio().getIdEjercicio());
-        String seriesBody = "{\"idDetalle\":" + detailId + ",\"numeroSerie\":1,\"repeticiones\":10,\"pesoKg\":20}";
+                "{\"idSesion\":" + sessionId + ",\"idEjercicio\":2147483647}", jwt).statusCode());
+        assertEquals(extra.getIdEjercicio(), detallesSesion.findById(extraDetailId).orElseThrow().getEjercicio().getIdEjercicio());
+        String seriesBody = "{\"idDetalle\":" + extraDetailId + ",\"numeroSerie\":1,\"repeticiones\":10,\"pesoKg\":20}";
         var createdSeries = request("POST", "/detalle-serie", seriesBody, jwt);
         assertEquals(201, createdSeries.statusCode(), createdSeries.body());
         int seriesId = json.readTree(createdSeries.body()).get("idSerie").asInt();
@@ -342,31 +363,31 @@ class BackendIntegrationTest {
         }
         assertEquals(403, request("POST", "/detalle-sesion", detailBody, otherJwt).statusCode());
         assertEquals(403, request("POST", "/detalle-serie", seriesBody, otherJwt).statusCode());
-        assertEquals(403, request("GET", "/detalle-sesion/sesion/" + session.getIdSesion(), null, otherJwt).statusCode());
-        assertEquals(403, request("GET", "/detalle-serie/detalle/" + detailId, null, otherJwt).statusCode());
-        assertEquals(403, request("PUT", "/detalle-sesion/" + detailId, "{\"observacion\":\"Ajena\"}", otherJwt).statusCode());
-        assertEquals(400, request("PUT", "/detalle-sesion/" + detailId,
+        assertEquals(403, request("GET", "/detalle-sesion/sesion/" + sessionId, null, otherJwt).statusCode());
+        assertEquals(403, request("GET", "/detalle-serie/detalle/" + extraDetailId, null, otherJwt).statusCode());
+        assertEquals(403, request("PUT", "/detalle-sesion/" + extraDetailId, "{\"observacion\":\"Ajena\"}", otherJwt).statusCode());
+        assertEquals(400, request("PUT", "/detalle-sesion/" + extraDetailId,
                 "{\"observacion\":\"" + "O".repeat(256) + "\"}", jwt).statusCode());
-        assertNull(detallesSesion.findById(detailId).orElseThrow().getObservacion());
+        assertNull(detallesSesion.findById(extraDetailId).orElseThrow().getObservacion());
         assertEquals(403, request("PUT", "/detalle-serie/" + seriesId, "{\"repeticiones\":12,\"pesoKg\":25}", otherJwt).statusCode());
-        assertEquals(403, request("DELETE", "/detalle-sesion/" + detailId, null, otherJwt).statusCode());
+        assertEquals(403, request("DELETE", "/detalle-sesion/" + extraDetailId, null, otherJwt).statusCode());
         assertEquals(403, request("DELETE", "/detalle-serie/" + seriesId, null, otherJwt).statusCode());
         assertEquals(404, request("DELETE", "/detalle-serie/2147483647", null, jwt).statusCode());
-        assertEquals(200, request("PUT", "/detalle-sesion/" + detailId,
+        assertEquals(200, request("PUT", "/detalle-sesion/" + extraDetailId,
                 "{\"observacion\":\"" + "O".repeat(255) + "\",\"idSesion\":2147483647,\"idEjercicio\":2147483647}", jwt).statusCode());
         assertEquals(200, request("PUT", "/detalle-serie/" + seriesId,
                 "{\"repeticiones\":12,\"pesoKg\":25,\"idDetalle\":2147483647}", jwt).statusCode());
-        assertEquals(session.getIdSesion(), detallesSesion.findById(detailId).orElseThrow().getSesion().getIdSesion());
-        assertEquals("O".repeat(255), detallesSesion.findById(detailId).orElseThrow().getObservacion());
-        assertEquals(e.getIdEjercicio(), detallesSesion.findById(detailId).orElseThrow().getEjercicio().getIdEjercicio());
-        assertEquals(detailId, series.findById(seriesId).orElseThrow().getDetalle().getIdDetalle());
+        assertEquals(sessionId, detallesSesion.findById(extraDetailId).orElseThrow().getSesion().getIdSesion());
+        assertEquals("O".repeat(255), detallesSesion.findById(extraDetailId).orElseThrow().getObservacion());
+        assertEquals(extra.getIdEjercicio(), detallesSesion.findById(extraDetailId).orElseThrow().getEjercicio().getIdEjercicio());
+        assertEquals(extraDetailId, series.findById(seriesId).orElseThrow().getDetalle().getIdDetalle());
         assertEquals(12, series.findById(seriesId).orElseThrow().getRepeticiones());
-        var zeroWeight = request("POST", "/detalle-serie", "{\"idDetalle\":" + detailId
+        var zeroWeight = request("POST", "/detalle-serie", "{\"idDetalle\":" + extraDetailId
                 + ",\"numeroSerie\":2,\"repeticiones\":10,\"pesoKg\":0}", jwt);
         assertEquals(201, zeroWeight.statusCode(), zeroWeight.body());
         int zeroWeightId = json.readTree(zeroWeight.body()).get("idSerie").asInt();
         assertEquals(0, series.findById(zeroWeightId).orElseThrow().getPesoKg().signum());
-        assertEquals(409, request("DELETE", "/detalle-sesion/" + detailId, null, jwt).statusCode());
+        assertEquals(409, request("DELETE", "/detalle-sesion/" + extraDetailId, null, jwt).statusCode());
         assertTrue(detallesSesion.existsById(detailId));
         assertTrue(series.existsById(seriesId));
         assertEquals(204, request("DELETE", "/detalle-serie/" + seriesId, null, jwt).statusCode());
@@ -375,6 +396,186 @@ class BackendIntegrationTest {
         assertFalse(series.existsById(seriesId));
         assertFalse(detallesSesion.existsById(detailId));
         assertEquals(404, request("DELETE", "/detalle-sesion/" + detailId, null, jwt).statusCode());
+    }
+
+    @Test void routineExerciseDeleteIsProtectedAndPersists() throws Exception {
+        var owner = usuario("TESTER");
+        var other = usuario("TESTER");
+        String ownerJwt = token(owner);
+        String otherJwt = token(other);
+
+        var r = rutina(owner);
+        var e = ejercicios.saveAndFlush(new Ejercicios("Press banca", "Pecho", "Fuerza", "Descripcion"));
+        var relation = request("POST", "/rutina-ejercicios", "{\"idRutina\":" + r.getIdRutina()
+                + ",\"idEjercicio\":" + e.getIdEjercicio() + ",\"series\":3,\"repeticiones\":10,\"descansoSeg\":60}", ownerJwt);
+        assertEquals(201, relation.statusCode(), relation.body());
+        int relationId = json.readTree(relation.body()).get("idRutinaEjercicio").asInt();
+
+        assertEquals(204, request("DELETE", "/rutina-ejercicios/" + relationId, null, ownerJwt).statusCode());
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated(owner.getCorreo(), null, List.of()));
+        assertFalse(rutinaEjerciciosService.listarPorRutina(r.getIdRutina()).stream()
+                .anyMatch(x -> x.idRutinaEjercicio().equals(relationId)));
+        assertFalse(rutinaEjerciciosRepository.existsById(relationId));
+
+        var r2 = rutina(owner);
+        var e2 = ejercicios.saveAndFlush(new Ejercicios("Sentadilla", "Piernas", "Fuerza", "Descripcion"));
+        var relation2 = request("POST", "/rutina-ejercicios", "{\"idRutina\":" + r2.getIdRutina()
+                + ",\"idEjercicio\":" + e2.getIdEjercicio() + ",\"series\":4,\"repeticiones\":8,\"descansoSeg\":60}", ownerJwt);
+        int relationId2 = json.readTree(relation2.body()).get("idRutinaEjercicio").asInt();
+
+        assertEquals(403, request("DELETE", "/rutina-ejercicios/" + relationId2, null, otherJwt).statusCode());
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated(owner.getCorreo(), null, List.of()));
+        assertTrue(rutinaEjerciciosRepository.existsById(relationId2));
+        assertEquals(404, request("DELETE", "/rutina-ejercicios/2147483647", null, ownerJwt).statusCode());
+
+        var routineOwned = rutinas.findById(r2.getIdRutina()).orElseThrow();
+        var exerciseOwned = ejercicios.findById(e2.getIdEjercicio()).orElseThrow();
+        assertEquals(owner.getIdUsuario(), routineOwned.getUsuario().getIdUsuario());
+        assertEquals(e2.getIdEjercicio(), exerciseOwned.getIdEjercicio());
+    }
+
+    @Test void routineSessionCanStartFromOwnRoutineAndAvoidDuplicates() throws Exception {
+        var owner = usuario("TESTER");
+        var other = usuario("TESTER");
+        String ownerJwt = token(owner);
+        String otherJwt = token(other);
+
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated(owner.getCorreo(), null, List.of()));
+        var routine = rutina(owner);
+        var exerciseA = ejercicios.saveAndFlush(new Ejercicios("Hip thrust", "Glúteos", "Fuerza", "Descripcion"));
+        var exerciseB = ejercicios.saveAndFlush(new Ejercicios("Sentadilla", "Piernas", "Fuerza", "Descripcion"));
+        rutinaEjerciciosService.registrar(new RutinaEjerciciosDTO(null, routine.getIdRutina(), exerciseA.getIdEjercicio(), 4, 12, 90));
+        rutinaEjerciciosService.registrar(new RutinaEjerciciosDTO(null, routine.getIdRutina(), exerciseB.getIdEjercicio(), 3, 10, 60));
+
+        long beforeDetalles = detallesSesion.count();
+        long beforeSeries = series.count();
+
+        var created = request("POST", "/sesiones/rutina/" + routine.getIdRutina() + "/iniciar", null, ownerJwt);
+        assertEquals(201, created.statusCode(), created.body());
+        int sessionId = json.readTree(created.body()).get("idSesion").asInt();
+        var session = sesiones.findById(sessionId).orElseThrow();
+        assertEquals(owner.getIdUsuario(), session.getUsuario().getIdUsuario());
+        assertEquals(routine.getIdRutina(), session.getRutina().getIdRutina());
+        assertEquals("EN_CURSO", session.getEstado());
+        assertNull(session.getDuracionMin());
+        assertEquals(beforeDetalles + 2, detallesSesion.count());
+        assertEquals(beforeSeries, series.count());
+        long copied = detallesSesion.findAll().stream()
+                .filter(d -> d.getSesion().getIdSesion().equals(sessionId))
+                .count();
+        assertEquals(2, copied);
+
+        var duplicate = request("POST", "/sesiones/rutina/" + routine.getIdRutina() + "/iniciar", null, ownerJwt);
+        assertEquals(409, duplicate.statusCode(), duplicate.body());
+        assertEquals(403, request("POST", "/sesiones/rutina/" + routine.getIdRutina() + "/iniciar", null, otherJwt).statusCode());
+        assertEquals(404, request("POST", "/sesiones/rutina/2147483647/iniciar", null, ownerJwt).statusCode());
+    }
+
+    @Test void sessionFinalizationPersistsOwnerDecisionAndKeepsHistory() throws Exception {
+        var owner = usuario("TESTER");
+        var other = usuario("TESTER");
+        var routine = rutina(owner);
+        var session = sesiones.saveAndFlush(new SesionesEntrenamiento(routine, owner,
+                LocalDateTime.now(), null, null, null, "EN_CURSO"));
+        var exercise = ejercicios.saveAndFlush(new Ejercicios("Press banca", "Pecho", "Fuerza", "Descripcion"));
+        var detail = detallesSesion.saveAndFlush(new DetalleSesion(session, exercise, "Listo"));
+        var seriesRow = series.saveAndFlush(new DetalleSerie(detail, 1, 10, new BigDecimal("20.00")));
+
+        String ownerJwt = token(owner);
+        String otherJwt = token(other);
+        String body = "{\"duracionMin\":45,\"nivelEnergia\":4,\"esfuerzoPercibido\":7}";
+
+        var finished = request("PUT", "/sesiones/" + session.getIdSesion() + "/finalizar", body, ownerJwt);
+        assertEquals(200, finished.statusCode(), finished.body());
+        var persisted = sesiones.findById(session.getIdSesion()).orElseThrow();
+        assertEquals(45, persisted.getDuracionMin());
+        assertEquals(4, persisted.getNivelEnergia());
+        assertEquals(7, persisted.getEsfuerzoPercibido());
+        assertEquals("FINALIZADA", persisted.getEstado());
+        assertTrue(detallesSesion.existsById(detail.getIdDetalle()));
+        assertTrue(series.existsById(seriesRow.getIdSerie()));
+
+        assertEquals(403, request("PUT", "/sesiones/" + session.getIdSesion() + "/finalizar", body, otherJwt).statusCode());
+        assertEquals(404, request("PUT", "/sesiones/2147483647/finalizar", body, ownerJwt).statusCode());
+
+        var alreadyFinished = sesiones.saveAndFlush(new SesionesEntrenamiento(routine, owner,
+                LocalDateTime.now(), 30, 3, 5, "FINALIZADA"));
+        assertEquals(409, request("PUT", "/sesiones/" + alreadyFinished.getIdSesion() + "/finalizar", body, ownerJwt).statusCode());
+
+        var invalidSession = sesiones.saveAndFlush(new SesionesEntrenamiento(routine, owner,
+                LocalDateTime.now(), null, null, null, "EN_CURSO"));
+        for (String invalid : List.of(
+                "{\"duracionMin\":0,\"nivelEnergia\":4,\"esfuerzoPercibido\":7}",
+                "{\"duracionMin\":30,\"nivelEnergia\":0,\"esfuerzoPercibido\":7}",
+                "{\"duracionMin\":30,\"nivelEnergia\":3,\"esfuerzoPercibido\":11}")) {
+            assertEquals(400, request("PUT", "/sesiones/" + invalidSession.getIdSesion() + "/finalizar", invalid, ownerJwt).statusCode());
+        }
+    }
+
+    @Test void sessionFlowFromRoutineToFinalizationKeepsPlannedExercisesIndependent() throws Exception {
+        var owner = usuario("TESTER");
+        var other = usuario("TESTER");
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated(owner.getCorreo(), null, List.of()));
+        var routine = rutina(owner);
+        var exercisePlanA = ejercicios.saveAndFlush(new Ejercicios("Hip thrust", "Glúteos", "Fuerza", "Descripcion"));
+        var exercisePlanB = ejercicios.saveAndFlush(new Ejercicios("Sentadilla", "Piernas", "Fuerza", "Descripcion"));
+        var exerciseExtra = ejercicios.saveAndFlush(new Ejercicios("Peso muerto", "Glúteos", "Fuerza", "Descripcion"));
+        rutinaEjerciciosService.registrar(new RutinaEjerciciosDTO(null, routine.getIdRutina(), exercisePlanA.getIdEjercicio(), 4, 12, 90));
+        rutinaEjerciciosService.registrar(new RutinaEjerciciosDTO(null, routine.getIdRutina(), exercisePlanB.getIdEjercicio(), 3, 10, 60));
+
+        String ownerJwt = token(owner);
+        String otherJwt = token(other);
+
+        assertEquals(403, request("POST", "/sesiones/rutina/" + routine.getIdRutina() + "/iniciar", null, otherJwt).statusCode());
+        var started = request("POST", "/sesiones/rutina/" + routine.getIdRutina() + "/iniciar", null, ownerJwt);
+        assertEquals(201, started.statusCode(), started.body());
+        int sessionId = json.readTree(started.body()).get("idSesion").asInt();
+        var detalleList = request("GET", "/detalle-sesion/sesion/" + sessionId, null, ownerJwt);
+        assertEquals(200, detalleList.statusCode(), detalleList.body());
+        JsonNode detalles = json.readTree(detalleList.body());
+        assertEquals(2, detalles.size());
+        List<Integer> plannedIds = new ArrayList<>();
+        for (JsonNode detalle : detalles) {
+            plannedIds.add(detalle.get("idEjercicio").asInt());
+        }
+        assertTrue(plannedIds.contains(exercisePlanA.getIdEjercicio()));
+        assertTrue(plannedIds.contains(exercisePlanB.getIdEjercicio()));
+
+        var extraDetail = request("POST", "/detalle-sesion", "{\"idSesion\":" + sessionId + ",\"idEjercicio\":" + exerciseExtra.getIdEjercicio() + "}", ownerJwt);
+        assertEquals(201, extraDetail.statusCode(), extraDetail.body());
+        int extraDetailId = json.readTree(extraDetail.body()).get("idDetalle").asInt();
+
+        var seriesCreate = request("POST", "/detalle-serie", "{\"idDetalle\":" + detalles.get(0).get("idDetalle").asInt() + ",\"numeroSerie\":1,\"repeticiones\":8,\"pesoKg\":20}", ownerJwt);
+        assertEquals(201, seriesCreate.statusCode(), seriesCreate.body());
+        int seriesId = json.readTree(seriesCreate.body()).get("idSerie").asInt();
+
+        var updatedSeries = request("PUT", "/detalle-serie/" + seriesId, "{\"repeticiones\":10,\"pesoKg\":22.5}", ownerJwt);
+        assertEquals(200, updatedSeries.statusCode(), updatedSeries.body());
+        assertEquals(10, series.findById(seriesId).orElseThrow().getRepeticiones());
+        assertEquals(new BigDecimal("22.50"), series.findById(seriesId).orElseThrow().getPesoKg());
+
+        assertEquals(204, request("DELETE", "/detalle-serie/" + seriesId, null, ownerJwt).statusCode());
+        assertFalse(series.existsById(seriesId));
+
+        var routineAfterSession = rutinaEjerciciosService.listarPorRutina(routine.getIdRutina());
+        assertEquals(2, routineAfterSession.size());
+        assertEquals(2, rutinaEjerciciosRepository.findByRutina_IdRutinaOrderByIdRutinaEjercicioAsc(routine.getIdRutina()).size());
+
+        var finish = request("PUT", "/sesiones/" + sessionId + "/finalizar", "{\"duracionMin\":50,\"nivelEnergia\":5,\"esfuerzoPercibido\":8}", ownerJwt);
+        assertEquals(200, finish.statusCode(), finish.body());
+        assertEquals("FINALIZADA", sesiones.findById(sessionId).orElseThrow().getEstado());
+        assertEquals(50, sesiones.findById(sessionId).orElseThrow().getDuracionMin());
+        assertEquals(5, sesiones.findById(sessionId).orElseThrow().getNivelEnergia());
+        assertEquals(8, sesiones.findById(sessionId).orElseThrow().getEsfuerzoPercibido());
+
+        var startedAgain = request("POST", "/sesiones/rutina/" + routine.getIdRutina() + "/iniciar", null, ownerJwt);
+        assertEquals(201, startedAgain.statusCode(), startedAgain.body());
+        assertEquals("EN_CURSO", sesiones.findById(json.readTree(startedAgain.body()).get("idSesion").asInt()).orElseThrow().getEstado());
+        assertTrue(detallesSesion.existsById(extraDetailId));
     }
 
     @Test void historyRoutineAndProfileEndpointsPersistAndRemainPrivateWithDiagnosticTimings() throws Exception {
@@ -409,11 +610,23 @@ class BackendIntegrationTest {
     @Test void detailSeriesValidateRepetitionsWeightAndExistingDetail() throws Exception {
         var owner = usuario("TESTER");
         var routine = rutina(owner);
-        var session = sesiones.saveAndFlush(new SesionesEntrenamiento(routine, owner,
-                LocalDateTime.now(), 30, 3, 5, "Completada"));
         var exercise = ejercicios.saveAndFlush(new Ejercicios("Serie validacion", null, null, null));
-        var detail = detallesSesion.saveAndFlush(new DetalleSesion(session, exercise, null));
         String jwt = token(owner);
+        var relation = request("POST", "/rutina-ejercicios",
+                "{\"idRutina\":" + routine.getIdRutina() + ",\"idEjercicio\":" + exercise.getIdEjercicio()
+                        + ",\"series\":3,\"repeticiones\":10,\"descansoSeg\":60}", jwt);
+        assertEquals(201, relation.statusCode(), relation.body());
+        var started = request("POST", "/sesiones/rutina/" + routine.getIdRutina() + "/iniciar", null, jwt);
+        assertEquals(201, started.statusCode(), started.body());
+        int sessionId = json.readTree(started.body()).get("idSesion").asInt();
+        DetalleSesion detail = detallesSesion.findAll().stream()
+                .filter(d -> d.getSesion().getIdSesion().equals(sessionId))
+                .filter(d -> d.getEjercicio().getIdEjercicio().equals(exercise.getIdEjercicio()))
+                .findFirst().orElseThrow();
+        assertEquals(1, detallesSesion.findAll().stream()
+                .filter(d -> d.getSesion().getIdSesion().equals(sessionId))
+                .filter(d -> d.getEjercicio().getIdEjercicio().equals(exercise.getIdEjercicio()))
+                .count());
         long before = series.count();
         for (String body : List.of(
                 "{\"idDetalle\":" + detail.getIdDetalle() + ",\"numeroSerie\":1,\"repeticiones\":0,\"pesoKg\":1}",
@@ -747,13 +960,17 @@ class BackendIntegrationTest {
         int id = json.readTree(created.body()).get("idDetalleDiarioCiclo").asInt();
         body.put("nivelEnergia", 5);
         assertEquals(200, request("PUT", "/detalle-diario", json.writeValueAsString(body), jwt).statusCode());
-        for (Object value : Arrays.asList(null, 0, 6, new BigDecimal("1.5"))) {
+        for (Object value : Arrays.asList(null, 0, 6)) {
             body.put("nivelEnergia", value);
             var invalid = request("PUT", "/detalle-diario", json.writeValueAsString(body), jwt);
             assertEquals(400, invalid.statusCode(), invalid.body());
-            if (!(value instanceof BigDecimal)) assertTrue(invalid.body().contains("NivelEnergia"));
+            assertTrue(invalid.body().contains("NivelEnergia"), invalid.body());
             assertEquals(5, diarios.findById(id).orElseThrow().getNivelEnergia());
         }
+        body.put("nivelEnergia", "1.5");
+        var invalidConversion = request("PUT", "/detalle-diario", json.writeValueAsString(body), jwt);
+        assertEquals(400, invalidConversion.statusCode(), invalidConversion.body());
+        assertEquals(5, diarios.findById(id).orElseThrow().getNivelEnergia());
         body.put("nivelEnergia", 1);
         body.put("idCiclo", otherCycle.getIdCiclo());
         assertEquals(200, request("PUT", "/detalle-diario", json.writeValueAsString(body), token(other)).statusCode());
@@ -838,53 +1055,26 @@ class BackendIntegrationTest {
         var ownRoutine = rutina(owner);
         var otherRoutine = rutina(other);
         String jwt = token(owner);
-        String body = "{\"idRutina\":" + ownRoutine.getIdRutina() + ",\"duracionMin\":30,\"nivelEnergia\":3,\"esfuerzoPercibido\":5,\"estado\":\"Completada\"}";
-        var created = request("POST", "/sesiones", body.replace("}", ",\"fecha\":\"1999-01-01T00:00:00\"}"), jwt);
-        assertEquals(201, created.statusCode(), created.body());
-        int id = json.readTree(created.body()).get("idSesion").asInt();
-        var original = sesiones.findById(id).orElseThrow();
-        assertEquals(owner.getIdUsuario(), original.getUsuario().getIdUsuario());
-        assertEquals(LocalDate.now(), original.getFecha().toLocalDate());
-        assertEquals("Completada", original.getEstado());
-        long sessionCount = sesiones.count();
-        String path = "/sesiones/" + id;
-        for (String invalid : List.of(body.replace("\"duracionMin\":30", "\"duracionMin\":-1"),
-                body.replace("\"duracionMin\":30", "\"duracionMin\":0"),
-                body.replace("\"duracionMin\":30", "\"duracionMin\":null"),
-                body.replace("\"nivelEnergia\":3", "\"nivelEnergia\":0"),
-                body.replace("\"nivelEnergia\":3", "\"nivelEnergia\":6"),
-                body.replace("\"nivelEnergia\":3", "\"nivelEnergia\":null"),
-                body.replace("\"estado\":\"Completada\"", "\"estado\":\"" + "E".repeat(31) + "\""),
-                body.replace("\"idRutina\":" + ownRoutine.getIdRutina(), "\"idRutina\":null"),
-                body.replace("\"idRutina\":" + ownRoutine.getIdRutina(), "\"idRutina\":2147483647"),
-                body.replace("\"esfuerzoPercibido\":5", "\"esfuerzoPercibido\":0"),
-                body.replace("\"esfuerzoPercibido\":5", "\"esfuerzoPercibido\":null"),
-                body.replace("\"esfuerzoPercibido\":5", "\"esfuerzoPercibido\":11"))) {
-            assertEquals(400, request("POST", "/sesiones", invalid, jwt).statusCode());
-            assertEquals(400, request("PUT", path, invalid, jwt).statusCode());
-            assertEquals(sessionCount, sesiones.count());
-            var unchanged = sesiones.findById(id).orElseThrow();
-            assertEquals(30, unchanged.getDuracionMin());
-            assertEquals(3, unchanged.getNivelEnergia());
-            assertEquals(5, unchanged.getEsfuerzoPercibido());
-            assertEquals("Completada", unchanged.getEstado());
-        }
-        String stolen = body.replace("\"idRutina\":" + ownRoutine.getIdRutina(), "\"idRutina\":" + otherRoutine.getIdRutina());
-        assertEquals(403, request("POST", "/sesiones", stolen, jwt).statusCode());
-        assertEquals(403, request("PUT", path, stolen, jwt).statusCode());
-        String transfer = body.replace("}", ",\"idUsuario\":" + other.getIdUsuario() + "}");
-        assertEquals(403, request("POST", "/sesiones", transfer, jwt).statusCode());
-        assertEquals(403, request("PUT", path, transfer, jwt).statusCode());
-        assertEquals(sessionCount, sesiones.count());
-        assertEquals(200, request("PUT", path, body.replace("}", ",\"fecha\":\"1999-01-01T00:00:00\"}"), jwt).statusCode());
-        assertEquals(original.getFecha(), sesiones.findById(id).orElseThrow().getFecha());
         String otherJwt = token(other);
+
+        var started = request("POST", "/sesiones/rutina/" + ownRoutine.getIdRutina() + "/iniciar", null, jwt);
+        assertEquals(201, started.statusCode(), started.body());
+        int id = json.readTree(started.body()).get("idSesion").asInt();
+        String path = "/sesiones/" + id;
+
+        assertEquals(405, request("POST", "/sesiones", "{\"idRutina\":" + ownRoutine.getIdRutina() + "}", jwt).statusCode());
+        assertEquals(405, request("PUT", path, "{\"duracionMin\":30,\"nivelEnergia\":3,\"esfuerzoPercibido\":5}", jwt).statusCode());
+        assertEquals(405, request("DELETE", path, null, jwt).statusCode());
+
         assertEquals(403, request("GET", path, null, otherJwt).statusCode());
-        assertEquals(403, request("GET", "/sesiones/detalle/" + id, null, otherJwt).statusCode());
         assertEquals(403, request("GET", "/sesiones/usuario/" + owner.getIdUsuario(), null, otherJwt).statusCode());
-        assertEquals(403, request("PUT", path, body, otherJwt).statusCode());
-        assertEquals(403, request("DELETE", path, null, otherJwt).statusCode());
+        assertEquals(405, request("PUT", path, "{\"duracionMin\":30,\"nivelEnergia\":3,\"esfuerzoPercibido\":5}", otherJwt).statusCode());
+        assertEquals(405, request("DELETE", path, null, otherJwt).statusCode());
         assertEquals(0, json.readTree(request("GET", "/sesiones", null, otherJwt).body()).size());
+
+        var otherStartAttempt = request("POST", "/sesiones/rutina/" + otherRoutine.getIdRutina() + "/iniciar", null, jwt);
+        assertEquals(403, otherStartAttempt.statusCode(), otherStartAttempt.body());
+        assertEquals("EN_CURSO", sesiones.findById(id).orElseThrow().getEstado());
     }
 
     @Test void routineOwnershipCannotBeTakenThroughPut() throws Exception {

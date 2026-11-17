@@ -29,6 +29,7 @@ public class DetalleSerieService implements IDetalleSerieService {
         positivo(d.idDetalle(), "IdDetalle");
         var detalle = detalles.bloquear(d.idDetalle()).orElseThrow(() -> noEncontrado("Detalle de sesion"));
         propietario(detalle);
+        sesionEnCurso(detalle.getSesion().getIdSesion());
         positivo(d.numeroSerie(), "NumeroSerie");
         validar(d.repeticiones(), d.pesoKg());
         conflicto(repository.existsByDetalle_IdDetalleAndNumeroSerie(d.idDetalle(), d.numeroSerie()), "NumeroSerie ya registrado para este ejercicio");
@@ -50,12 +51,17 @@ public class DetalleSerieService implements IDetalleSerieService {
     public DetalleSerieDTO actualizar(Integer id, ActualizarSerieDTO d) {
         exigir(d != null, "Los datos son obligatorios");
         var e = propia(id);
+        sesionEnCurso(e.getDetalle().getSesion().getIdSesion());
         validar(d.repeticiones(), d.pesoKg());
         e.setRepeticiones(d.repeticiones()); e.setPesoKg(d.pesoKg());
         return dto(repository.save(e));
     }
     @Transactional
-    public void eliminar(Integer id) { repository.delete(propia(id)); }
+    public void eliminar(Integer id) {
+        var e = propia(id);
+        sesionEnCurso(e.getDetalle().getSesion().getIdSesion());
+        repository.delete(e);
+    }
     private DetalleSerie propia(Integer id) {
         positivo(id, "IdSerie");
         var e = repository.findById(id).orElseThrow(() -> noEncontrado("Serie"));
@@ -70,6 +76,13 @@ public class DetalleSerieService implements IDetalleSerieService {
         // Navegamos por el objeto Sesion, y luego por el objeto Usuario
         actual.verificar(sesiones.findById(d.getSesion().getIdSesion())
                 .orElseThrow(() -> noEncontrado("Sesion")).getUsuario().getIdUsuario());
+    }
+    private void sesionEnCurso(Integer idSesion) {
+        positivo(idSesion, "IdSesion");
+        var sesion = sesiones.findById(idSesion).orElseThrow(() -> noEncontrado("Sesion"));
+        if (!"EN_CURSO".equalsIgnoreCase(sesion.getEstado())) {
+            conflicto(true, "La sesion no se encuentra en curso");
+        }
     }
     private void validar(Integer repeticiones, BigDecimal peso) {
         positivo(repeticiones, "Repeticiones");

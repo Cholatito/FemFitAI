@@ -27,4 +27,9 @@ public interface DetalleDiarioCicloRepository extends JpaRepository<DetalleDiari
         """)
     Page<DetalleDiarioCiclo> historial(@Param("idUsuario") Long idUsuario, Pageable pageable);
     List<DetalleDiarioCiclo> findByCiclo_IdCicloOrderByFechaAsc(Long idCiclo);
+
+    Optional<DetalleDiarioCiclo>
+    findFirstByCiclo_IdCicloOrderByFechaDescIdDetalleDiarioCicloDesc(
+            Long idCiclo
+    );
 }

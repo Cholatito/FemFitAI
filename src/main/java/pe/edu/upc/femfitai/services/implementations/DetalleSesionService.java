@@ -28,6 +28,7 @@ public class DetalleSesionService implements IDetalleSesionService {
     public DetalleSesionDTO registrar(DetalleSesionDTO d) {
         exigir(d != null, "Los datos son obligatorios");
         sesionPropia(d.idSesion());
+        sesionEnCurso(d.idSesion());
         positivo(d.idEjercicio(), "IdEjercicio");
 
         // 1. Buscamos los objetos completos en la base de datos
@@ -52,12 +53,14 @@ public class DetalleSesionService implements IDetalleSesionService {
         exigir(d != null, "Los datos son obligatorios");
         texto(d.observacion(), 255, "Observacion", false);
         var e = propio(id);
+        sesionEnCurso(e.getSesion().getIdSesion());
         e.setObservacion(d.observacion());
         return dto(repository.save(e));
     }
     @Transactional
     public void eliminar(Integer id) {
         var e = propio(id);
+        sesionEnCurso(e.getSesion().getIdSesion());
         conflicto(series.existsByDetalle_IdDetalle(id), "El ejercicio tiene series registradas; elimine las series antes");
         repository.delete(e);
         repository.flush();
@@ -76,6 +79,14 @@ public class DetalleSesionService implements IDetalleSesionService {
         actual.verificar(sesiones.findById(id)
                 .orElseThrow(() -> noEncontrado("Sesion"))
                 .getUsuario().getIdUsuario());
+    }
+
+    private void sesionEnCurso(Integer idSesion) {
+        positivo(idSesion, "IdSesion");
+        var sesion = sesiones.findById(idSesion).orElseThrow(() -> noEncontrado("Sesion"));
+        if (!"EN_CURSO".equalsIgnoreCase(sesion.getEstado())) {
+            conflicto(true, "La sesion no se encuentra en curso");
+        }
     }
 
     private DetalleSesionDTO dto(DetalleSesion e) {

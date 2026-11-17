@@ -135,6 +135,9 @@ public class SecurityConfig {
                         .hasRole("PROGRAMADOR")
                         .requestMatchers(HttpMethod.DELETE, "/ejercicios/**")
                         .hasRole("PROGRAMADOR")
+                        // Sincronización del catálogo desde wger.
+                        .requestMatchers(HttpMethod.POST, "/ejercicios/wger/sincronizar")
+                        .hasRole("PROGRAMADOR")
                         // Todo lo demás requiere autenticación.
                         .anyRequest().authenticated()
                 )

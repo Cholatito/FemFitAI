@@ -52,7 +52,9 @@ public class DetalleDiarioCicloService implements IDetalleDiarioCicloService {
     @Override
     public DetalleDiarioCicloDTO actualizar(Integer id, DetalleDiarioCicloDTO datos) {
         DetalleDiarioCiclo detalle = obtenerDetalle(id);
+        actual.verificar(detalle.getCiclo().getUsuario().getIdUsuario());
         Ciclos ciclo = validar(datos);
+        actual.verificar(ciclo.getUsuario().getIdUsuario());
 
         detalle.setCiclo(ciclo);
         detalle.setFecha(datos.getFecha());
@@ -137,7 +139,9 @@ public class DetalleDiarioCicloService implements IDetalleDiarioCicloService {
         if (id == null) {
             throw noEncontrado(id);
         }
-        return repository.findById(id).orElseThrow(() -> noEncontrado(id));
+        DetalleDiarioCiclo detalle = repository.findById(id).orElseThrow(() -> noEncontrado(id));
+        actual.verificar(detalle.getCiclo().getUsuario().getIdUsuario());
+        return detalle;
     }
 
     private ResponseStatusException noEncontrado(Integer id) {
@@ -154,14 +158,19 @@ public class DetalleDiarioCicloService implements IDetalleDiarioCicloService {
         Validaciones.exigir(datos.getFecha() != null, "fecha es obligatoria");
         Validaciones.texto(datos.getFaseRegistrada(), 50, "faseRegistrada", false);
         Validaciones.texto(datos.getObservaciones(), 255, "observaciones", false);
+        Validaciones.exigir(datos.getNivelEnergia() != null, "NivelEnergia es obligatorio");
+        Validaciones.exigir(datos.getNivelEnergia() >= ENERGIA_MIN && datos.getNivelEnergia() <= ENERGIA_MAX,
+                "NivelEnergia debe estar entre " + ENERGIA_MIN + " y " + ENERGIA_MAX);
 
         if (!esInteger(datos.getIdCiclo())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "idCiclo debe estar dentro del rango INTEGER de PostgreSQL");
         }
-        return ciclos.findById(datos.getIdCiclo())
+        Ciclos ciclo = ciclos.findById(datos.getIdCiclo())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "No existe un ciclo con ID " + datos.getIdCiclo()));
+        actual.verificar(ciclo.getUsuario().getIdUsuario());
+        return ciclo;
     }
 
     private boolean esInteger(Long valor) {

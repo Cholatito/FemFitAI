@@ -9,6 +9,7 @@ import pe.edu.upc.femfitai.dtos.*;
 
 public interface RutinaEjerciciosRepository extends JpaRepository<RutinaEjercicios, Integer> {
     boolean existsByEjercicio_IdEjercicio(Integer idEjercicio);
+    List<RutinaEjercicios> findByRutina_IdRutinaOrderByIdRutinaEjercicioAsc(Integer idRutina);
     @Query("""
         select new pe.edu.upc.femfitai.dtos.RutinaEjercicioDetalleDTO(
             re.idRutinaEjercicio, re.rutina.idRutina, e.idEjercicio, e.nombre, e.grupoMuscular,

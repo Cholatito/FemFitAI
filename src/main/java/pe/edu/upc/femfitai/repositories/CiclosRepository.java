@@ -25,4 +25,9 @@ public interface CiclosRepository extends JpaRepository<Ciclos, Long> {
             """)
     Optional<CiclosUsuarioDTO> buscarDetallePorId(
             @Param("id") Long id);
+
+    Optional<Ciclos>
+    findFirstByUsuario_IdUsuarioAndFechaRealIsNullOrderByFechaInicioDesc(
+            Integer idUsuario
+    );
 }
