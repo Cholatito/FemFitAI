@@ -72,7 +72,7 @@ public class UsuariosService implements IUsuariosService {
         if (datos == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
-        validar(datos.getNombres(), datos.getApellidos(), datos.getCorreo(), datos.getPasswordHash());
+        validar(datos.getNombres(), datos.getApellidos(), datos.getCorreo());
         repository.findByCorreo(datos.getCorreo())
                 .filter(existente -> !existente.getIdUsuario().equals(id))
                 .ifPresent(existente -> {
@@ -82,8 +82,9 @@ public class UsuariosService implements IUsuariosService {
         usuario.setNombres(datos.getNombres());
         usuario.setApellidos(datos.getApellidos());
         usuario.setCorreo(datos.getCorreo());
-        usuario.setPasswordHash(passwordEncoder.encode(datos.getPasswordHash()));
-        usuario.setRol(datos.getRol() == null ? usuario.getRol() : normalizarRol(datos.getRol()));
+        if (datos.getPasswordHash() != null && !datos.getPasswordHash().isBlank()) {
+            usuario.setPasswordHash(passwordEncoder.encode(datos.getPasswordHash()));
+        }
         usuario.setEstado(datos.getEstado() == null ? usuario.getEstado() : datos.getEstado());
         return convertirADTO(repository.save(usuario));
     }
@@ -91,7 +92,9 @@ public class UsuariosService implements IUsuariosService {
     @Override
     @Transactional
     public void eliminar(Integer id) {
-        repository.delete(obtenerUsuario(id));
+        Usuarios usuario = obtenerUsuario(id);
+        usuario.setEstado(false);
+        repository.save(usuario);
     }
 
     private Usuarios obtenerUsuario(Integer id) {
@@ -102,10 +105,14 @@ public class UsuariosService implements IUsuariosService {
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "No existe un usuario con ID " + id));
     }
 
-    private void validar(String nombres, String apellidos, String correo, String passwordHash) {
+    private void validar(String nombres, String apellidos, String correo) {
         obligatorio(nombres, "Nombres");
         obligatorio(apellidos, "Apellidos");
         obligatorio(correo, "Correo");
+    }
+
+    private void validar(String nombres, String apellidos, String correo, String passwordHash) {
+        validar(nombres, apellidos, correo);
         obligatorio(passwordHash, "PasswordHash");
     }
 

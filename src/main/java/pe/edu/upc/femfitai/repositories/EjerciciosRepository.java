@@ -1,36 +1,43 @@
+
 package pe.edu.upc.femfitai.repositories;
 
 import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
 import pe.edu.upc.femfitai.dtos.EjerciciosUsuarioDTO;
 import pe.edu.upc.femfitai.entities.Ejercicios;
-import java.util.Optional;
+
 public interface EjerciciosRepository extends JpaRepository<Ejercicios, Integer> {
 
     Optional<Ejercicios> findByWgerId(Integer wgerId);
 
     @Query("""
-        select e from Ejercicios e
-        where (:tipo = '' or lower(e.tipo) = :tipo)
-          and (
-              :query = ''
-              or lower(e.nombre) like :query escape '!'
-              or lower(e.grupoMuscular) like :query escape '!'
-          )
-        """)
+            select e from Ejercicios e
+            where (:tipo = '' or lower(e.tipo) = :tipo)
+              and (
+                  :query = ''
+                  or lower(e.nombre) like :query escape '!'
+                  or lower(e.grupoMuscular) like :query escape '!'
+              )
+            """)
     org.springframework.data.domain.Page<Ejercicios> buscar(
             @Param("tipo") String tipo,
             @Param("query") String query,
             org.springframework.data.domain.Pageable pageable
     );
+
     @Query("""
             select e from Ejercicios e
             where lower(e.grupoMuscular) = lower(:grupoMuscular)
             order by e.nombre, e.idEjercicio
             """)
-    List<Ejercicios> buscarPorGrupoMuscular(@Param("grupoMuscular") String grupoMuscular);
+    List<Ejercicios> buscarPorGrupoMuscular(
+            @Param("grupoMuscular") String grupoMuscular
+    );
 
     @Query("""
             select new pe.edu.upc.femfitai.dtos.EjerciciosUsuarioDTO(
@@ -45,6 +52,8 @@ public interface EjerciciosRepository extends JpaRepository<Ejercicios, Integer>
             where u.idUsuario = :idUsuario
             order by r.idRutina, re.idRutinaEjercicio
             """)
-    List<EjerciciosUsuarioDTO> listarPorUsuario(@Param("idUsuario") Integer idUsuario);
+    List<EjerciciosUsuarioDTO> listarPorUsuario(
+            @Param("idUsuario") Integer idUsuario
+    );
 
 }
