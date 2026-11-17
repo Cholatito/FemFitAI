@@ -48,17 +48,8 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
     @Override
     @Transactional
     public SesionesEntrenamientoDTO registrar(SesionesEntrenamientoDTO datos) {
-        if (datos == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
-        }
-        Rutinas rutina = obtenerRutina(datos.getIdRutina());
-        Usuarios usuario = obtenerUsuario(datos.getIdUsuario());
-        SesionesEntrenamiento sesion = new SesionesEntrenamiento(
-                rutina, usuario,
-                datos.getFecha() == null ? LocalDateTime.now() : datos.getFecha(),
-                datos.getDuracionMin(), datos.getNivelEnergia(),
-                datos.getEsfuerzoPercibido(), datos.getEstado());
-        return convertirADTO(repository.save(sesion));
+        throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED,
+                "Las sesiones nuevas deben iniciarse desde una rutina planificada con POST /sesiones/rutina/{idRutina}/iniciar");
     }
 
     @Override
@@ -75,6 +66,10 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "No existe una rutina con ID " + idRutina));
         actual.verificar(rutina.getUsuario().getIdUsuario());
+        if (Boolean.FALSE.equals(rutina.getEstado())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "La rutina no está activa");
+        }
 
         Integer idUsuario = actual.id();
         boolean existeActiva = repository.existsByUsuario_IdUsuarioAndRutina_IdRutinaAndEstado(
@@ -164,30 +159,23 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
     @Override
     @Transactional(readOnly = true)
     public SesionesEntrenamientoDTO buscarPorId(Integer id) {
-        return convertirADTO(obtenerSesion(id));
+        SesionesEntrenamiento sesion = obtenerSesion(id);
+        actual.verificar(sesion.getUsuario().getIdUsuario());
+        return convertirADTO(sesion);
     }
 
     @Override
     @Transactional
     public SesionesEntrenamientoDTO actualizar(Integer id, SesionesEntrenamientoDTO datos) {
-        SesionesEntrenamiento sesion = obtenerSesion(id);
-        if (datos == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
-        }
-        sesion.setRutina(obtenerRutina(datos.getIdRutina()));
-        sesion.setUsuario(obtenerUsuario(datos.getIdUsuario()));
-        sesion.setFecha(datos.getFecha());
-        sesion.setDuracionMin(datos.getDuracionMin());
-        sesion.setNivelEnergia(datos.getNivelEnergia());
-        sesion.setEsfuerzoPercibido(datos.getEsfuerzoPercibido());
-        sesion.setEstado(datos.getEstado());
-        return convertirADTO(repository.save(sesion));
+        throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED,
+                "La sesion no puede modificarse mediante este endpoint. Use PUT /sesiones/{id}/finalizar para cerrar una sesion EN_CURSO");
     }
 
     @Override
     @Transactional
     public void eliminar(Integer id) {
-        repository.delete(obtenerSesion(id));
+        throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED,
+                "La sesion no puede eliminarse por historial. Mantenga el registro de entrenamiento");
     }
 
     @Override
