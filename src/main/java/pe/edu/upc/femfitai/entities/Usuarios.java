@@ -27,7 +27,7 @@ public class Usuarios {
     private String passwordHash;
 
     @Column(name = "\"Rol\"", nullable = false, length = 30)
-    @ColumnDefault("'TESTER'")
+    @ColumnDefault("'USUARIA'")
     private String rol;
 
     @Column(name = "\"Estado\"", nullable = true)

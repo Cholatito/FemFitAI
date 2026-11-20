@@ -52,7 +52,7 @@ public class AuthController {
 
             String rol = usuario.getAuthorities().stream().findFirst()
                     .map(authority -> authority.getAuthority().replaceFirst("^ROLE_", ""))
-                    .orElse("TESTER");
+                    .orElse("USUARIA");
 
             Usuarios usuarioBD = usuariosRepository.findByCorreo(usuario.getUsername())
                     .orElseThrow(() -> new UsernameNotFoundException(
