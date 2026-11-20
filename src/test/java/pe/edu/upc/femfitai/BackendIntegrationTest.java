@@ -1151,4 +1151,25 @@ class BackendIntegrationTest {
                 history / 1e6, join / 1e6, profile / 1e6);
         // No thresholds: this fixture is not a production PostgreSQL performance certification.
     }
+
+    @Test void adminAndUsuariaHaveSeparatePermissions() throws Exception {
+        String admin = token(usuario("ADMIN"));
+        String usuaria = token(usuario("USUARIA"));
+        // ADMIN no accede a los datos personales ni a las funciones de la usuaria.
+        for (String path : List.of("/ciclos", "/detalle-diario", "/rutinas", "/sesiones",
+                "/progreso", "/perfiles", "/recomendaciones")) {
+            assertEquals(403, request("GET", path, null, admin).statusCode(), path);
+            assertNotEquals(403, request("GET", path, null, usuaria).statusCode(), path);
+        }
+        assertEquals(403, request("POST", "/ia/chat", "{}", admin).statusCode());
+        // USUARIA no administra usuarios ni modifica el catalogo.
+        assertEquals(403, request("GET", "/usuarios", null, usuaria).statusCode());
+        assertEquals(403, request("POST", "/ejercicios", "{\"nombre\":\"Nuevo\"}", usuaria).statusCode());
+        assertEquals(403, request("POST", "/ejercicios/wger/sincronizar", null, usuaria).statusCode());
+        // Ambos roles pueden consultar el catalogo.
+        assertEquals(200, request("GET", "/ejercicios/buscar", null, admin).statusCode());
+        assertEquals(200, request("GET", "/ejercicios/buscar", null, usuaria).statusCode());
+        // Sin token no se accede a nada protegido.
+        assertEquals(401, request("GET", "/ciclos", null, null).statusCode());
+    }
 }
