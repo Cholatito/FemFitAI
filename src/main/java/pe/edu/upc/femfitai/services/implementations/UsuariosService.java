@@ -23,8 +23,8 @@ public class UsuariosService implements IUsuariosService {
     private final UsuariosRepository repository;
     private final PasswordEncoder passwordEncoder;
     private final UsuarioActualService actual;
-    private static final Set<String> ROLES_PERMITIDOS = Set.of("PROGRAMADOR", "TESTER");
-    private static final String ROL_POR_DEFECTO = "TESTER";
+    private static final Set<String> ROLES_PERMITIDOS = Set.of("ADMIN", "USUARIA");
+    private static final String ROL_POR_DEFECTO = "USUARIA";
 
 
     public UsuariosService(UsuariosRepository repository, PasswordEncoder passwordEncoder, UsuarioActualService actual) {
@@ -54,7 +54,7 @@ public class UsuariosService implements IUsuariosService {
     @Override
     @Transactional(readOnly = true)
     public List<UsuariosDTO> listar() {
-        if (!quienLlamaEsProgramador()) {
+        if (!quienLlamaEsAdmin()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tienes permisos para listar usuarios");
         }
         return repository.findAll().stream().map(this::convertirADTO).toList();
@@ -64,7 +64,7 @@ public class UsuariosService implements IUsuariosService {
     @Transactional(readOnly = true)
     public UsuariosDTO buscarPorId(Integer id) {
         Usuarios usuario = obtenerUsuario(id);
-        if (!quienLlamaEsProgramador()) {
+        if (!quienLlamaEsAdmin()) {
             actual.verificar(usuario.getIdUsuario());
         }
         return convertirADTO(usuario);
@@ -74,7 +74,7 @@ public class UsuariosService implements IUsuariosService {
     @Transactional
     public UsuariosDTO actualizar(Integer id, UsuariosDTO datos) {
         Usuarios usuario = obtenerUsuario(id);
-        if (!quienLlamaEsProgramador()) {
+        if (!quienLlamaEsAdmin()) {
             actual.verificar(usuario.getIdUsuario());
         }
         if (datos == null) {
@@ -101,7 +101,7 @@ public class UsuariosService implements IUsuariosService {
     @Transactional
     public void eliminar(Integer id) {
         Usuarios usuario = obtenerUsuario(id);
-        if (!quienLlamaEsProgramador()) {
+        if (!quienLlamaEsAdmin()) {
             actual.verificar(usuario.getIdUsuario());
         }
         usuario.setEstado(false);
@@ -141,7 +141,7 @@ public class UsuariosService implements IUsuariosService {
         String rolNormalizado = rol.trim().toUpperCase(Locale.ROOT);
         if (!ROLES_PERMITIDOS.contains(rolNormalizado)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Rol debe ser PROGRAMADOR o TESTER");
+                    "Rol debe ser ADMIN o USUARIA");
         }
         return rolNormalizado;
     }
@@ -150,19 +150,18 @@ public class UsuariosService implements IUsuariosService {
             return ROL_POR_DEFECTO;
         }
         String rol = normalizarRol(rolSolicitado);
-        if (rol.equals("PROGRAMADOR") && !quienLlamaEsProgramador()) {
+        if (rol.equals("ADMIN") && !quienLlamaEsAdmin()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "Solo un PROGRAMADOR puede crear otro PROGRAMADOR");
+                    "Solo un ADMIN puede crear otro ADMIN");
         }
         return rol;
     }
 
-    private boolean quienLlamaEsProgramador() {
+    private boolean quienLlamaEsAdmin() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         return auth != null && auth.isAuthenticated()
                 && auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_PROGRAMADOR"));
-    }
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));    }
     private UsuariosDTO convertirADTO(Usuarios usuario) {
         return new UsuariosDTO(usuario.getIdUsuario(), usuario.getNombres(),
                 usuario.getApellidos(), usuario.getCorreo(), usuario.getRol(),
