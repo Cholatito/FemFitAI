@@ -123,22 +123,27 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**")
                         .permitAll()
 
-                        .requestMatchers(HttpMethod.GET, "/usuarios")
-                        .hasRole("PROGRAMADOR")
-                        .requestMatchers(HttpMethod.PUT, "/usuarios/**")
-                        .hasRole("PROGRAMADOR")
-                        .requestMatchers(HttpMethod.DELETE, "/usuarios/**")
-                        .hasRole("PROGRAMADOR")
+                                // ADMIN: administra las cuentas de todas las usuarias.
+                                .requestMatchers(HttpMethod.GET, "/usuarios").hasRole("ADMIN")
+                                .requestMatchers(HttpMethod.PUT, "/usuarios/**").hasRole("ADMIN")
+                                .requestMatchers(HttpMethod.DELETE, "/usuarios/**").hasRole("ADMIN")
 
-                        // US32 y US33: solo PROGRAMADOR modifica el catálogo.
-                        .requestMatchers(HttpMethod.PUT, "/ejercicios/**")
-                        .hasRole("PROGRAMADOR")
-                        .requestMatchers(HttpMethod.DELETE, "/ejercicios/**")
-                        .hasRole("PROGRAMADOR")
-                        // Sincronización del catálogo desde wger.
-                        .requestMatchers(HttpMethod.POST, "/ejercicios/wger/sincronizar")
-                        .hasRole("PROGRAMADOR")
-                        // Todo lo demás requiere autenticación.
+// ADMIN: único rol que modifica el catálogo de ejercicios
+// (la consulta del catálogo queda abierta a cualquier cuenta autenticada).
+                                .requestMatchers(HttpMethod.POST, "/ejercicios").hasRole("ADMIN")
+                                .requestMatchers(HttpMethod.PUT, "/ejercicios/**").hasRole("ADMIN")
+                                .requestMatchers(HttpMethod.DELETE, "/ejercicios/**").hasRole("ADMIN")
+// Sincronización del catálogo desde wger.
+                                .requestMatchers(HttpMethod.POST, "/ejercicios/wger/sincronizar").hasRole("ADMIN")
+
+// USUARIA: datos personales y funciones de la app.
+// ADMIN no accede a los ciclos, rutinas, sesiones, progreso, etc.
+                                .requestMatchers(
+                                        "/ejercicios/usuario/**", "/ciclos/**", "/detalle-diario/**",
+                                        "/rutinas/**", "/rutina-ejercicios/**", "/sesiones/**",
+                                        "/detalle-sesion/**", "/detalle-serie/**", "/progreso/**",
+                                        "/perfiles/**", "/recomendaciones/**", "/ia/**")
+                                .hasRole("USUARIA")
                         .anyRequest().authenticated()
                 )
 
