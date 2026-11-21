@@ -191,7 +191,8 @@ public class SesionesEntrenamientoService implements ISesionesEntrenamientoServi
         if (id == null) {
             throw noEncontrada(id);
         }
-        obtenerSesion(id);
+        SesionesEntrenamiento sesion = obtenerSesion(id);
+        actual.verificar(sesion.getUsuario().getIdUsuario());
         return repository.buscarDetallePorId(id).orElseThrow(() -> noEncontrada(id));
     }
 

@@ -18,13 +18,16 @@ public class EjerciciosService implements IEjerciciosService {
     private static final Pattern CONTENIDO_PELIGROSO = Pattern.compile(
             "(?i)<\\s*(script|iframe|object|embed|svg)\\b|javascript\\s*:|\\bon[a-z]+\\s*=");
     private final EjerciciosRepository repository;
+    private final UsuarioActualService actual;
     private final pe.edu.upc.femfitai.repositories.RutinaEjerciciosRepository rutinas;
     private final pe.edu.upc.femfitai.repositories.DetalleSesionRepository detalles;
 
     public EjerciciosService(EjerciciosRepository repository,
                              pe.edu.upc.femfitai.repositories.RutinaEjerciciosRepository rutinas,
-                             pe.edu.upc.femfitai.repositories.DetalleSesionRepository detalles) {
+                             pe.edu.upc.femfitai.repositories.DetalleSesionRepository detalles,
+                             UsuarioActualService actual) {
         this.repository = repository;
+        this.actual = actual;
         this.rutinas = rutinas;
         this.detalles = detalles;
     }
@@ -95,6 +98,7 @@ public class EjerciciosService implements IEjerciciosService {
     @Override
     @Transactional(readOnly = true)
     public List<EjerciciosUsuarioDTO> listarPorUsuario(Integer idUsuario) {
+        actual.verificar(idUsuario);
         return repository.listarPorUsuario(idUsuario);
     }
 

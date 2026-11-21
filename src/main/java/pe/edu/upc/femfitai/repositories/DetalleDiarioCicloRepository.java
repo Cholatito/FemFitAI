@@ -9,6 +9,7 @@ import pe.edu.upc.femfitai.entities.DetalleDiarioCiclo;
 
 public interface DetalleDiarioCicloRepository extends JpaRepository<DetalleDiarioCiclo, Integer> {
     boolean existsByCiclo_IdCiclo(Long idCiclo);
+    List<DetalleDiarioCiclo> findByCiclo_Usuario_IdUsuarioOrderByFechaDescIdDetalleDiarioCicloDesc(Integer idUsuario);
 
     // Navegamos directamente al objeto "ciclo" y luego al "usuario" de ese ciclo
     @Query("""

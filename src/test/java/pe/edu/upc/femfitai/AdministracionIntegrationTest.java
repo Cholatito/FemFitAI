@@ -163,4 +163,46 @@ class AdministracionIntegrationTest {
         for(String method:List.of("GET","PUT","DELETE"))assertEquals(403,request(method,"/progreso/"+ajeno,method.equals("PUT")?progreso(owner):null,userToken).statusCode());
         call(404,"GET",path("progreso")+"/2147483647",null);call(400,"GET",path("progreso")+"/0",null);
     }
+
+    @Test void diarioGeneralSoloDevuelveRegistrosDeLaUsuariaAutenticada() throws Exception {
+        long propio=call(201,"POST",path("ciclos"),Map.of("idUsuario",owner.getIdUsuario(),"fechaInicio",LocalDate.now().toString())).get("idCiclo").asLong();
+        long ajeno=call(201,"POST",path("ciclos"),Map.of("idUsuario",other.getIdUsuario(),"fechaInicio",LocalDate.now().toString())).get("idCiclo").asLong();
+        for(long ciclo:List.of(propio,ajeno))call(201,"POST",path("detalle-diario"),Map.of("idCiclo",ciclo,"fecha",LocalDate.now().toString(),"nivelEnergia",3));
+        var respuesta=request("GET","/detalle-diario",null,userToken);assertEquals(200,respuesta.statusCode());
+        var filas=json.readTree(respuesta.body());assertEquals(1,filas.size());assertEquals(propio,filas.get(0).get("idCiclo").asLong());
+        var otra=request("GET","/detalle-diario",null,login(other));assertEquals(200,otra.statusCode());
+        assertEquals(ajeno,json.readTree(otra.body()).get(0).get("idCiclo").asLong());
+    }
+    @Test void diarioPorCicloVerificaPropiedadInclusoSiNoTieneEntradas() throws Exception {
+        long propio=call(201,"POST",path("ciclos"),Map.of("idUsuario",owner.getIdUsuario(),"fechaInicio",LocalDate.now().toString())).get("idCiclo").asLong();
+        long ajeno=call(201,"POST",path("ciclos"),Map.of("idUsuario",other.getIdUsuario(),"fechaInicio",LocalDate.now().toString())).get("idCiclo").asLong();
+        assertEquals(200,request("GET","/detalle-diario/ciclo/"+propio,null,userToken).statusCode());
+        assertEquals(403,request("GET","/detalle-diario/ciclo/"+ajeno,null,userToken).statusCode());
+        assertEquals(404,request("GET","/detalle-diario/ciclo/2147483647",null,userToken).statusCode());
+        assertEquals(400,request("GET","/detalle-diario/ciclo/2147483648",null,userToken).statusCode());
+        assertEquals(401,request("GET","/detalle-diario/ciclo/"+propio,null,null).statusCode());
+        assertEquals(403,request("GET","/detalle-diario/ciclo/"+propio,null,adminToken).statusCode());
+    }
+    @Test void detalleDeSesionNoExponeElJoinDeOtraUsuaria() throws Exception {
+        int propia=rutina(owner),ajena=rutina(other),ejercicio=ejercicio();
+        for(int r:List.of(propia,ajena))call(201,"POST",path("rutina-ejercicios"),Map.of("idRutina",r,"idEjercicio",ejercicio));
+        int sesionPropia=call(201,"POST",path("sesiones"),Map.of("idRutina",propia)).get("idSesion").asInt();
+        int sesionAjena=call(201,"POST",path("sesiones"),Map.of("idRutina",ajena)).get("idSesion").asInt();
+        assertEquals(200,request("GET","/sesiones/detalle/"+sesionPropia,null,userToken).statusCode());
+        assertEquals(403,request("GET","/sesiones/detalle/"+sesionAjena,null,userToken).statusCode());
+        assertEquals(403,request("GET","/sesiones/detalle/"+sesionPropia,null,login(other)).statusCode());
+        assertEquals(404,request("GET","/sesiones/detalle/2147483647",null,userToken).statusCode());
+        assertEquals(401,request("GET","/sesiones/detalle/"+sesionPropia,null,null).statusCode());
+    }
+    @Test void ejerciciosPorUsuariaProtegeElJoinYConservaElCatalogoCompartido() throws Exception {
+        int propia=rutina(owner),ajena=rutina(other),ejercicio=ejercicio();
+        for(int r:List.of(propia,ajena))call(201,"POST",path("rutina-ejercicios"),Map.of("idRutina",r,"idEjercicio",ejercicio));
+        var respuesta=request("GET","/ejercicios/usuario/"+owner.getIdUsuario(),null,userToken);assertEquals(200,respuesta.statusCode());
+        var filas=json.readTree(respuesta.body());assertEquals(1,filas.size());assertEquals(owner.getIdUsuario(),filas.get(0).get("idUsuario").asInt());
+        assertEquals(403,request("GET","/ejercicios/usuario/"+other.getIdUsuario(),null,userToken).statusCode());
+        assertEquals(403,request("GET","/ejercicios/usuario/"+owner.getIdUsuario(),null,login(other)).statusCode());
+        assertEquals(401,request("GET","/ejercicios/usuario/"+owner.getIdUsuario(),null,null).statusCode());
+        assertEquals(200,request("GET","/ejercicios",null,userToken).statusCode());
+        call(200,"GET","/ejercicios",null);
+    }
 }

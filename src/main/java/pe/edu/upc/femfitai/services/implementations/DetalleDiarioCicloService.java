@@ -39,7 +39,7 @@ public class DetalleDiarioCicloService implements IDetalleDiarioCicloService {
     @Override
     @Transactional(readOnly = true)
     public List<DetalleDiarioCicloDTO> listar() {
-        return repository.findAll().stream()
+        return repository.findByCiclo_Usuario_IdUsuarioOrderByFechaDescIdDetalleDiarioCicloDesc(actual.id()).stream()
                 .map(this::dto)
                 .toList();
     }
@@ -75,6 +75,9 @@ public class DetalleDiarioCicloService implements IDetalleDiarioCicloService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "idCiclo debe estar dentro del rango INTEGER de PostgreSQL");
         }
+        Ciclos ciclo = ciclos.findById(idCiclo)
+                .orElseThrow(() -> Validaciones.noEncontrado("Ciclo"));
+        actual.verificar(ciclo.getUsuario().getIdUsuario());
         return repository.findByCiclo_IdCicloOrderByFechaAsc(idCiclo).stream()
                 .map(this::convertirADTO)
                 .toList();
