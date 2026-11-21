@@ -18,4 +18,6 @@ public interface RutinaEjerciciosRepository extends JpaRepository<RutinaEjercici
         where re.rutina.idRutina = :idRutina order by re.idRutinaEjercicio
         """)
     List<RutinaEjercicioDetalleDTO> listarDetalle(@Param("idRutina") Integer idRutina);
+
+    org.springframework.data.domain.Page<RutinaEjercicios> findByRutina_Usuario_IdUsuario(Integer idUsuario, org.springframework.data.domain.Pageable pageable);
 }

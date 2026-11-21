@@ -30,4 +30,6 @@ public interface CiclosRepository extends JpaRepository<Ciclos, Long> {
     findFirstByUsuario_IdUsuarioAndFechaRealIsNullOrderByFechaInicioDesc(
             Integer idUsuario
     );
+
+    org.springframework.data.domain.Page<Ciclos> findByUsuario_IdUsuario(Long idUsuario, org.springframework.data.domain.Pageable pageable);
 }

@@ -20,4 +20,6 @@ public interface DetalleSesionRepository extends JpaRepository<DetalleSesion, In
     @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select d from DetalleSesion d where d.idDetalle = :id")
     Optional<DetalleSesion> bloquear(@Param("id") Integer id);
+
+    org.springframework.data.domain.Page<DetalleSesion> findBySesion_Usuario_IdUsuario(Integer idUsuario, org.springframework.data.domain.Pageable pageable);
 }

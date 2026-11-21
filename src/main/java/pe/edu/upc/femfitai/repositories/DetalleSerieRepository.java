@@ -9,4 +9,6 @@ public interface DetalleSerieRepository extends JpaRepository<DetalleSerie, Inte
     List<DetalleSerie> findByDetalle_IdDetalleOrderByNumeroSerieAscIdSerieAsc(Integer idDetalle);
     boolean existsByDetalle_IdDetalle(Integer idDetalle);
     boolean existsByDetalle_IdDetalleAndNumeroSerie(Integer idDetalle, Integer numeroSerie);
+
+    org.springframework.data.domain.Page<DetalleSerie> findByDetalle_Sesion_Usuario_IdUsuario(Integer idUsuario, org.springframework.data.domain.Pageable pageable);
 }

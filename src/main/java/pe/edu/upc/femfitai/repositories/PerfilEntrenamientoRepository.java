@@ -7,4 +7,6 @@ import pe.edu.upc.femfitai.entities.PerfilEntrenamiento;
 
 public interface PerfilEntrenamientoRepository extends JpaRepository<PerfilEntrenamiento, Integer> {
     Optional<PerfilEntrenamiento> findByUsuario_IdUsuario(Integer idUsuario);
+
+    org.springframework.data.domain.Page<PerfilEntrenamiento> findByUsuario_IdUsuario(Integer idUsuario, org.springframework.data.domain.Pageable pageable);
 }

@@ -32,4 +32,6 @@ public interface DetalleDiarioCicloRepository extends JpaRepository<DetalleDiari
     findFirstByCiclo_IdCicloOrderByFechaDescIdDetalleDiarioCicloDesc(
             Long idCiclo
     );
+
+    org.springframework.data.domain.Page<DetalleDiarioCiclo> findByCiclo_Usuario_IdUsuario(Integer idUsuario, org.springframework.data.domain.Pageable pageable);
 }

@@ -23,4 +23,7 @@ public interface SesionesEntrenamientoRepository extends JpaRepository<SesionesE
             where s.idSesion = :id
             """)
     Optional<SesionesEntrenamientoDTODetalle> buscarDetallePorId(@Param("id") Integer id);
+
+    org.springframework.data.domain.Page<SesionesEntrenamiento> findByUsuario_IdUsuario(Integer idUsuario, org.springframework.data.domain.Pageable pageable);
+    boolean existsByRutina_IdRutina(Integer idRutina);
 }
