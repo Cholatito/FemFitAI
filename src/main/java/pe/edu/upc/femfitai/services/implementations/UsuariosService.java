@@ -25,6 +25,7 @@ public class UsuariosService implements IUsuariosService {
     private final UsuarioActualService actual;
     private static final Set<String> ROLES_PERMITIDOS = Set.of("ADMIN", "USUARIA");
     private static final String ROL_POR_DEFECTO = "USUARIA";
+    private static final String PATRON_PASSWORD = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$";
 
 
     public UsuariosService(UsuariosRepository repository, PasswordEncoder passwordEncoder, UsuarioActualService actual) {
@@ -81,6 +82,10 @@ public class UsuariosService implements IUsuariosService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
         validar(datos.getNombres(), datos.getApellidos(), datos.getCorreo());
+        boolean cambiaPassword = datos.getPasswordHash() != null && !datos.getPasswordHash().isBlank();
+        if (cambiaPassword) {
+            validarPassword(datos.getPasswordHash());
+        }
         repository.findByCorreo(datos.getCorreo())
                 .filter(existente -> !existente.getIdUsuario().equals(id))
                 .ifPresent(existente -> {
@@ -90,7 +95,7 @@ public class UsuariosService implements IUsuariosService {
         usuario.setNombres(datos.getNombres());
         usuario.setApellidos(datos.getApellidos());
         usuario.setCorreo(datos.getCorreo());
-        if (datos.getPasswordHash() != null && !datos.getPasswordHash().isBlank()) {
+        if (cambiaPassword) {
             usuario.setPasswordHash(passwordEncoder.encode(datos.getPasswordHash()));
         }
         usuario.setEstado(datos.getEstado() == null ? usuario.getEstado() : datos.getEstado());
@@ -124,8 +129,12 @@ public class UsuariosService implements IUsuariosService {
 
     private void validar(String nombres, String apellidos, String correo, String passwordHash) {
         validar(nombres, apellidos, correo);
+        validarPassword(passwordHash);
+    }
+
+    private void validarPassword(String passwordHash) {
         obligatorio(passwordHash, "PasswordHash");
-        if (!passwordHash.matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$")) {
+        if (!passwordHash.matches(PATRON_PASSWORD)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "La contraseña debe tener al menos 8 caracteres, incluir mayúsculas, minúsculas y números");
         }
