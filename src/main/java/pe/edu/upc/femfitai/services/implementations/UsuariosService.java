@@ -25,6 +25,8 @@ public class UsuariosService implements IUsuariosService {
     private final UsuarioActualService actual;
     private static final Set<String> ROLES_PERMITIDOS = Set.of("ADMIN", "USUARIA");
     private static final String ROL_POR_DEFECTO = "USUARIA";
+    private static final String PATRON_PASSWORD = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$";
+    private static final String PATRON_CORREO = "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$";
 
 
     public UsuariosService(UsuariosRepository repository, PasswordEncoder passwordEncoder, UsuarioActualService actual) {
@@ -40,14 +42,16 @@ public class UsuariosService implements IUsuariosService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
         validar(datos.getNombres(), datos.getApellidos(), datos.getCorreo(), datos.getPasswordHash());
-        if (repository.findByCorreo(datos.getCorreo()).isPresent()) {
+        String correo = datos.getCorreo().trim();
+        if (repository.findByCorreo(correo).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "El correo ya está registrado");
         }
         String rol = resolverRolAlRegistrar(datos.getRol());
-        Usuarios usuario = new Usuarios(datos.getNombres(), datos.getApellidos(),
-                datos.getCorreo(), passwordEncoder.encode(datos.getPasswordHash()),
+        Usuarios usuario = new Usuarios(datos.getNombres().trim(), datos.getApellidos().trim(),
+                correo, passwordEncoder.encode(datos.getPasswordHash()),
                 rol,
-                datos.getEstado() == null ? true : datos.getEstado(), LocalDateTime.now());
+                quienLlamaEsAdmin() && datos.getEstado() != null ? datos.getEstado() : Boolean.TRUE,
+                LocalDateTime.now());
         return convertirADTO(repository.save(usuario));
     }
 
@@ -81,16 +85,21 @@ public class UsuariosService implements IUsuariosService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Los datos son obligatorios");
         }
         validar(datos.getNombres(), datos.getApellidos(), datos.getCorreo());
-        repository.findByCorreo(datos.getCorreo())
+        boolean cambiaPassword = datos.getPasswordHash() != null && !datos.getPasswordHash().isBlank();
+        if (cambiaPassword) {
+            validarPassword(datos.getPasswordHash());
+        }
+        String correo = datos.getCorreo().trim();
+        repository.findByCorreo(correo)
                 .filter(existente -> !existente.getIdUsuario().equals(id))
                 .ifPresent(existente -> {
                     throw new ResponseStatusException(HttpStatus.CONFLICT,
                             "El correo ya está registrado");
                 });
-        usuario.setNombres(datos.getNombres());
-        usuario.setApellidos(datos.getApellidos());
-        usuario.setCorreo(datos.getCorreo());
-        if (datos.getPasswordHash() != null && !datos.getPasswordHash().isBlank()) {
+        usuario.setNombres(datos.getNombres().trim());
+        usuario.setApellidos(datos.getApellidos().trim());
+        usuario.setCorreo(correo);
+        if (cambiaPassword) {
             usuario.setPasswordHash(passwordEncoder.encode(datos.getPasswordHash()));
         }
         usuario.setEstado(datos.getEstado() == null ? usuario.getEstado() : datos.getEstado());
@@ -120,12 +129,22 @@ public class UsuariosService implements IUsuariosService {
         obligatorio(nombres, "Nombres");
         obligatorio(apellidos, "Apellidos");
         obligatorio(correo, "Correo");
+        Validaciones.texto(nombres.trim(), 100, "Nombres", true);
+        Validaciones.texto(apellidos.trim(), 100, "Apellidos", true);
+        Validaciones.texto(correo.trim(), 150, "Correo", true);
+        if (!correo.trim().matches(PATRON_CORREO)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Correo no tiene un formato válido");
+        }
     }
 
     private void validar(String nombres, String apellidos, String correo, String passwordHash) {
         validar(nombres, apellidos, correo);
+        validarPassword(passwordHash);
+    }
+
+    private void validarPassword(String passwordHash) {
         obligatorio(passwordHash, "PasswordHash");
-        if (!passwordHash.matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$")) {
+        if (!passwordHash.matches(PATRON_PASSWORD)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "La contraseña debe tener al menos 8 caracteres, incluir mayúsculas, minúsculas y números");
         }
