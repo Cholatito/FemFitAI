@@ -30,4 +30,5 @@ public interface CiclosRepository extends JpaRepository<Ciclos, Long> {
     findFirstByUsuario_IdUsuarioAndFechaRealIsNullOrderByFechaInicioDesc(
             Integer idUsuario
     );
+    long countByUsuario_IdUsuario(Integer idUsuario);
 }

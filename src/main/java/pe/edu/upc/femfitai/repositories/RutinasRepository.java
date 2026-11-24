@@ -20,4 +20,5 @@ public interface RutinasRepository extends JpaRepository<Rutinas, Integer> {
             where r.idRutina = :id
             """)
     Optional<RutinasUsuarioDTO> buscarDetallePorId(@Param("id") Integer id);
+    long countByUsuario_IdUsuario(Integer idUsuario);
 }

@@ -127,6 +127,7 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/usuarios").hasRole("ADMIN")
                                 .requestMatchers(HttpMethod.PUT, "/usuarios/**").hasRole("ADMIN")
                                 .requestMatchers(HttpMethod.DELETE, "/usuarios/**").hasRole("ADMIN")
+                                .requestMatchers(HttpMethod.GET, "/usuarios/*/detalle").hasRole("ADMIN")
 
 // ADMIN: único rol que modifica el catálogo de ejercicios
 // (la consulta del catálogo queda abierta a cualquier cuenta autenticada).

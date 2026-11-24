@@ -23,4 +23,5 @@ public interface SesionesEntrenamientoRepository extends JpaRepository<SesionesE
             where s.idSesion = :id
             """)
     Optional<SesionesEntrenamientoDTODetalle> buscarDetallePorId(@Param("id") Integer id);
+    long countByUsuario_IdUsuario(Integer idUsuario);
 }

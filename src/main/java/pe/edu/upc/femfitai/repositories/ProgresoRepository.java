@@ -6,4 +6,5 @@ import pe.edu.upc.femfitai.entities.Progreso;
 
 public interface ProgresoRepository extends JpaRepository<Progreso, Integer> {
     Page<Progreso> findByUsuario_IdUsuarioOrderByFechaDescIdProgresoDesc(Integer idUsuario, Pageable pageable);
+    long countByUsuario_IdUsuario(Integer idUsuario);
 }
