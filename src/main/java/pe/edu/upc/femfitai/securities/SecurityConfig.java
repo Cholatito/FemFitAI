@@ -58,7 +58,8 @@ public class SecurityConfig {
         // Frontend Angular local
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:4200",
-                "http://127.0.0.1:4200"
+                "http://127.0.0.1:4200",
+                "https://femfitai-web.netlify.app"
         ));
 
         // Métodos HTTP permitidos
