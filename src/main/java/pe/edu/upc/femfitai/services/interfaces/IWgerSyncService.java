@@ -11,8 +11,14 @@ public interface IWgerSyncService {
             int omitidos,
             boolean completo,
             Integer offsetError,
-            String mensaje
+            String mensaje,
+            int imagenesImportadas
     ) {
+        public ResultadoSincronizacion(int totalConsultados, int insertados, int actualizados, int omitidos,
+                                       boolean completo, Integer offsetError, String mensaje) {
+            this(totalConsultados, insertados, actualizados, omitidos, completo, offsetError, mensaje, 0);
+        }
+
         public ResultadoSincronizacion(int totalConsultados, int insertados, int omitidos) {
             this(totalConsultados, insertados, 0, omitidos, true, null, null);
         }

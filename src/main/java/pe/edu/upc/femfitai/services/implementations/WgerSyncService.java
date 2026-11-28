@@ -39,6 +39,10 @@ public class WgerSyncService implements IWgerSyncService {
         int actualizados = 0;
         int omitidos = 0;
         int offset = 0;
+        int imagenesImportadas = 0;
+        Map<Integer, Map<?, ?>> licencias = new java.util.HashMap<>();
+        boolean licenciasConsultadas = false;
+        boolean falloLicencias = false;
         boolean completo = true;
         Integer offsetError = null;
         String mensaje = null;
@@ -79,21 +83,45 @@ public class WgerSyncService implements IWgerSyncService {
                     continue;
                 }
 
+                if (!licenciasConsultadas && (existente == null || existente.getImagenUrl() == null || existente.getImagenUrl().isBlank())
+                        && !obtenerListaMapas(ejercicioMap.get("images")).isEmpty()) {
+                    licenciasConsultadas = true;
+                    try {
+                        for (Map<?, ?> licencia : obtenerListaMapas(wgerClient.obtenerLicencias().get("results"))) {
+                            Integer idLicencia = toInteger(licencia.get("id"));
+                            if (idLicencia != null) licencias.put(idLicencia, licencia);
+                        }
+                    } catch (RuntimeException ex) {
+                        falloLicencias = true;
+                        log.warn("No se importaron imágenes: no se pudieron consultar sus licencias", ex);
+                    }
+                }
+
                 Ejercicios ejercicio = mapearEjercicio(ejercicioMap, wgerId);
                 if (ejercicio == null) {
                     omitidos++;
                     continue;
                 }
 
+                // Completar solo imágenes ausentes; nunca reemplazar una elección de ADMIN.
+                if (existente == null || existente.getImagenUrl() == null || existente.getImagenUrl().isBlank()) {
+                    asignarImagenWger(ejercicio, ejercicioMap, licencias);
+                }
+
                 try {
                     if (existente == null) {
                         ejerciciosRepository.save(ejercicio);
                         insertados++;
-                    } else if (actualizarEjercicioExistente(existente, ejercicio)) {
-                        ejerciciosRepository.save(existente);
-                        actualizados++;
+                        if (ejercicio.getImagenUrl() != null) imagenesImportadas++;
                     } else {
-                        omitidos++;
+                        boolean sinImagen = existente.getImagenUrl() == null || existente.getImagenUrl().isBlank();
+                        if (actualizarEjercicioExistente(existente, ejercicio)) {
+                            ejerciciosRepository.save(existente);
+                            actualizados++;
+                            if (sinImagen && existente.getImagenUrl() != null) imagenesImportadas++;
+                        } else {
+                            omitidos++;
+                        }
                     }
                 } catch (DataIntegrityViolationException ex) {
                     log.warn("Se omitió un ejercicio duplicado o inválido de wger con ID {}", wgerId, ex);
@@ -109,7 +137,13 @@ public class WgerSyncService implements IWgerSyncService {
             offset += 20;
         }
 
-        return new ResultadoSincronizacion(totalConsultados, insertados, actualizados, omitidos, completo, offsetError, mensaje);
+        if (falloLicencias) {
+            completo = false;
+            String aviso = "No se pudieron consultar las licencias de imagen. Los ejercicios se conservaron; vuelve a sincronizar.";
+            mensaje = mensaje == null ? aviso : mensaje + ". " + aviso;
+        }
+        return new ResultadoSincronizacion(totalConsultados, insertados, actualizados, omitidos,
+                completo, offsetError, mensaje, imagenesImportadas);
     }
 
     private Ejercicios mapearEjercicio(Map<?, ?> ejercicioMap, Integer wgerId) {
@@ -376,7 +410,7 @@ public class WgerSyncService implements IWgerSyncService {
     @SuppressWarnings("unchecked")
     private static List<Map<?, ?>> obtenerListaMapas(Object valor) {
         if (valor == null) {
-            return null;
+            return List.of();
         }
         if (valor instanceof List<?> lista) {
             List<Map<?, ?>> resultado = new ArrayList<>();
@@ -387,7 +421,7 @@ public class WgerSyncService implements IWgerSyncService {
             }
             return resultado;
         }
-        return null;
+        return List.of();
     }
 
     @SuppressWarnings("unchecked")
@@ -441,7 +475,9 @@ public class WgerSyncService implements IWgerSyncService {
     }
 
     private boolean actualizarEjercicioExistente(Ejercicios existente, Ejercicios ejercicio) {
-        if (Objects.equals(existente.getNombre(), ejercicio.getNombre())
+        boolean imagenNueva = (existente.getImagenUrl() == null || existente.getImagenUrl().isBlank())
+                && ejercicio.getImagenUrl() != null;
+        if (!imagenNueva && Objects.equals(existente.getNombre(), ejercicio.getNombre())
                 && Objects.equals(existente.getGrupoMuscular(), ejercicio.getGrupoMuscular())
                 && Objects.equals(existente.getDescripcion(), ejercicio.getDescripcion())) {
             return false;
@@ -450,7 +486,58 @@ public class WgerSyncService implements IWgerSyncService {
         existente.setNombre(ejercicio.getNombre());
         existente.setGrupoMuscular(ejercicio.getGrupoMuscular());
         existente.setDescripcion(ejercicio.getDescripcion());
+        if (imagenNueva) {
+            ImagenEjercicio.asignar(existente, ejercicio.getImagenUrl(), ejercicio.getImagenAutor(),
+                    ejercicio.getImagenLicencia(), ejercicio.getImagenLicenciaUrl());
+        }
         return true;
+    }
+
+    private void asignarImagenWger(Ejercicios ejercicio, Map<?, ?> datos, Map<Integer, Map<?, ?>> licencias) {
+        List<Map<?, ?>> imagenes = obtenerListaMapas(datos.get("images"));
+        // Preferir la imagen principal; admitir fotos e ilustraciones sin fiarnos de style=Photo.
+        for (boolean principal : new boolean[]{true, false}) {
+            for (Map<?, ?> imagen : imagenes) {
+                if (Boolean.parseBoolean(String.valueOf(imagen.get("is_main"))) != principal
+                        || Boolean.parseBoolean(String.valueOf(imagen.get("is_ai_generated")))
+                        || !Objects.equals(toInteger(imagen.get("exercise")), ejercicio.getWgerId())) continue;
+                Map<?, ?> licencia = licencias.get(toInteger(imagen.get("license")));
+                if (licencia == null) continue;
+                String url = limpiarTexto(imagen.get("image"));
+                String licenciaUrl = limpiarTexto(licencia.get("url"));
+                String nombreLicencia = limpiarTexto(licencia.get("short_name"));
+                if (nombreLicencia == null) nombreLicencia = limpiarTexto(licencia.get("full_name"));
+                if (url == null || licenciaUrl == null || nombreLicencia == null) continue;
+                if (licenciaUrl.startsWith("http://creativecommons.org/")) {
+                    licenciaUrl = "https://" + licenciaUrl.substring(7);
+                }
+                try {
+                    java.net.URI fuente = java.net.URI.create(url);
+                    java.net.URI derechos = java.net.URI.create(licenciaUrl);
+                    // Solo el medio asociado por wger al ID exacto, con licencia abierta identificada.
+                    if (!"wger.de".equalsIgnoreCase(fuente.getHost())
+                            || !fuente.getPath().startsWith("/media/exercise-images/")
+                            || !"creativecommons.org".equalsIgnoreCase(derechos.getHost())
+                            || !(derechos.getPath().startsWith("/licenses/by/")
+                            || derechos.getPath().startsWith("/licenses/by-sa/")
+                            || derechos.getPath().startsWith("/publicdomain/zero/"))) continue;
+                    Set<String> autores = new LinkedHashSet<>();
+                    String autor = limpiarTexto(imagen.get("license_author"));
+                    if (autor != null) autores.add(autor);
+                    if (imagen.get("author_history") instanceof List<?> historia) {
+                        for (Object anterior : historia) {
+                            String nombreAutor = limpiarTexto(anterior);
+                            if (nombreAutor != null) autores.add(nombreAutor);
+                        }
+                    }
+                    autor = autores.isEmpty() ? null : String.join(", ", autores);
+                    ImagenEjercicio.asignar(ejercicio, url, autor, nombreLicencia, licenciaUrl);
+                    return;
+                } catch (IllegalArgumentException | org.springframework.web.server.ResponseStatusException ex) {
+                    log.debug("Imagen inválida omitida para el ejercicio wger {}", ejercicio.getWgerId());
+                }
+            }
+        }
     }
 
     private static String combinarSinDuplicados(String... valores) {

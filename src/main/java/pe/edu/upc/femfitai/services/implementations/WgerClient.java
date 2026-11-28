@@ -24,6 +24,23 @@ public class WgerClient {
                 .build();
     }
 
+    public Map<String, Object> obtenerLicencias() {
+        try {
+            Map<String, Object> respuesta = restClient.get()
+                    .uri("/license/?limit=100")
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<Map<String, Object>>() {});
+            if (respuesta == null || !(respuesta.get("results") instanceof java.util.List<?>)) {
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                        "La respuesta de licencias de wger no tiene el formato esperado");
+            }
+            return respuesta;
+        } catch (RestClientException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "No se pudieron consultar las licencias de imagen de wger", ex);
+        }
+    }
+
     public Map<String, Object> obtenerPaginaEjercicios(int offset) {
 
         if (offset < 0) {

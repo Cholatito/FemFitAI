@@ -24,6 +24,18 @@ public class Ejercicios {
     @Column(name = "\"Descripcion\"", nullable = true, columnDefinition = "text")
     private String descripcion;
 
+    @Column(name = "\"ImagenUrl\"", length = 2048)
+    private String imagenUrl;
+
+    @Column(name = "\"ImagenAutor\"", length = 255)
+    private String imagenAutor;
+
+    @Column(name = "\"ImagenLicencia\"", length = 255)
+    private String imagenLicencia;
+
+    @Column(name = "\"ImagenLicenciaUrl\"", length = 2048)
+    private String imagenLicenciaUrl;
+
     public Ejercicios() {}
 
     public Ejercicios(String nombre, String grupoMuscular, String tipo, String descripcion) {
@@ -73,6 +85,15 @@ public class Ejercicios {
         this.descripcion = descripcion;
     }
 
+
+    public String getImagenUrl() { return imagenUrl; }
+    public void setImagenUrl(String imagenUrl) { this.imagenUrl = imagenUrl; }
+    public String getImagenAutor() { return imagenAutor; }
+    public void setImagenAutor(String imagenAutor) { this.imagenAutor = imagenAutor; }
+    public String getImagenLicencia() { return imagenLicencia; }
+    public void setImagenLicencia(String imagenLicencia) { this.imagenLicencia = imagenLicencia; }
+    public String getImagenLicenciaUrl() { return imagenLicenciaUrl; }
+    public void setImagenLicenciaUrl(String imagenLicenciaUrl) { this.imagenLicenciaUrl = imagenLicenciaUrl; }
 
     public Integer getWgerId() {
         return wgerId;

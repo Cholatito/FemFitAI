@@ -44,6 +44,8 @@ public class EjerciciosService implements IEjerciciosService {
         validarDescripcion(datos.getDescripcion());
         Ejercicios ejercicio = new Ejercicios(datos.getNombre(), datos.getGrupoMuscular(),
                 datos.getTipo(), descripcionSegura(datos.getDescripcion()));
+        ImagenEjercicio.asignar(ejercicio, datos.getImagenUrl(), datos.getImagenAutor(),
+                datos.getImagenLicencia(), datos.getImagenLicenciaUrl());
         return convertirADTO(repository.save(ejercicio));
     }
 
@@ -69,6 +71,10 @@ public class EjerciciosService implements IEjerciciosService {
         ejercicio.setTipo(datos.getTipo());
         validarDescripcion(datos.getDescripcion());
         ejercicio.setDescripcion(descripcionSegura(datos.getDescripcion()));
+        if (datos.isImagenIncluida()) {
+            ImagenEjercicio.asignar(ejercicio, datos.getImagenUrl(), datos.getImagenAutor(),
+                    datos.getImagenLicencia(), datos.getImagenLicenciaUrl());
+        }
         return convertirADTO(repository.save(ejercicio));
     }
 
@@ -181,7 +187,12 @@ public class EjerciciosService implements IEjerciciosService {
     }
 
     private EjerciciosDTO convertirADTO(Ejercicios ejercicio) {
-        return new EjerciciosDTO(ejercicio. getIdEjercicio(),ejercicio.getNombre(),
+        EjerciciosDTO dto = new EjerciciosDTO(ejercicio.getIdEjercicio(), ejercicio.getNombre(),
                 ejercicio.getGrupoMuscular(), ejercicio.getTipo(), ejercicio.getDescripcion());
+        dto.setImagenUrl(ejercicio.getImagenUrl());
+        dto.setImagenAutor(ejercicio.getImagenAutor());
+        dto.setImagenLicencia(ejercicio.getImagenLicencia());
+        dto.setImagenLicenciaUrl(ejercicio.getImagenLicenciaUrl());
+        return dto;
     }
 }

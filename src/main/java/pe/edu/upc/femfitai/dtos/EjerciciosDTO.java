@@ -6,6 +6,11 @@ public class EjerciciosDTO {
     private String grupoMuscular;
     private String tipo;
     private String descripcion;
+    private String imagenUrl;
+    private String imagenAutor;
+    private String imagenLicencia;
+    private String imagenLicenciaUrl;
+    private boolean imagenIncluida;
 
     public EjerciciosDTO() {
     }
@@ -17,6 +22,19 @@ public class EjerciciosDTO {
         this.tipo = tipo;
         this.descripcion = descripcion;
     }
+
+    // Permite que clientes antiguos actualicen texto sin borrar una imagen existente.
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public boolean isImagenIncluida() { return imagenIncluida; }
+
+    public String getImagenUrl() { return imagenUrl; }
+    public void setImagenUrl(String imagenUrl) { this.imagenUrl = imagenUrl; this.imagenIncluida = true; }
+    public String getImagenAutor() { return imagenAutor; }
+    public void setImagenAutor(String imagenAutor) { this.imagenAutor = imagenAutor; }
+    public String getImagenLicencia() { return imagenLicencia; }
+    public void setImagenLicencia(String imagenLicencia) { this.imagenLicencia = imagenLicencia; }
+    public String getImagenLicenciaUrl() { return imagenLicenciaUrl; }
+    public void setImagenLicenciaUrl(String imagenLicenciaUrl) { this.imagenLicenciaUrl = imagenLicenciaUrl; }
 
     public Integer getIdEjercicio() {
         return idEjercicio;
