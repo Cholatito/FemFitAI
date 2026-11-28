@@ -23,7 +23,7 @@ import java.util.Map;
 
 
 @RestController
-@RequestMapping("/administracion/ciclos")
+@RequestMapping("/administracion")
 public class AdministracionCiclosController {
 
     private final EntityManager em;
