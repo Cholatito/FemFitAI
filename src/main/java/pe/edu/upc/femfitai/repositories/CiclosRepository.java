@@ -32,4 +32,5 @@ public interface CiclosRepository extends JpaRepository<Ciclos, Long> {
     );
 
     org.springframework.data.domain.Page<Ciclos> findByUsuario_IdUsuario(Long idUsuario, org.springframework.data.domain.Pageable pageable);
+    long countByUsuario_IdUsuario(Integer idUsuario);
 }

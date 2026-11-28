@@ -58,7 +58,8 @@ public class SecurityConfig {
         // Frontend Angular local
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:4200",
-                "http://127.0.0.1:4200"
+                "http://127.0.0.1:4200",
+                "https://femfitai-web.netlify.app"
         ));
 
         // Métodos HTTP permitidos
@@ -127,6 +128,7 @@ public class SecurityConfig {
                                 .requestMatchers(HttpMethod.GET, "/usuarios").hasRole("ADMIN")
                                 .requestMatchers(HttpMethod.PUT, "/usuarios/**").hasRole("ADMIN")
                                 .requestMatchers(HttpMethod.DELETE, "/usuarios/**").hasRole("ADMIN")
+                                .requestMatchers(HttpMethod.GET, "/usuarios/*/detalle").hasRole("ADMIN")
 
 // ADMIN: único rol que modifica el catálogo de ejercicios
 // (la consulta del catálogo queda abierta a cualquier cuenta autenticada).

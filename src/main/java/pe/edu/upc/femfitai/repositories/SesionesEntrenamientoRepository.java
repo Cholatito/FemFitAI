@@ -26,4 +26,5 @@ public interface SesionesEntrenamientoRepository extends JpaRepository<SesionesE
 
     org.springframework.data.domain.Page<SesionesEntrenamiento> findByUsuario_IdUsuario(Integer idUsuario, org.springframework.data.domain.Pageable pageable);
     boolean existsByRutina_IdRutina(Integer idRutina);
+    long countByUsuario_IdUsuario(Integer idUsuario);
 }

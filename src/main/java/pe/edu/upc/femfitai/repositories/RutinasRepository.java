@@ -22,4 +22,5 @@ public interface RutinasRepository extends JpaRepository<Rutinas, Integer> {
     Optional<RutinasUsuarioDTO> buscarDetallePorId(@Param("id") Integer id);
 
     org.springframework.data.domain.Page<Rutinas> findByUsuario_IdUsuario(Integer idUsuario, org.springframework.data.domain.Pageable pageable);
+    long countByUsuario_IdUsuario(Integer idUsuario);
 }
